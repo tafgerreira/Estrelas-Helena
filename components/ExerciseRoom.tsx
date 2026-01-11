@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Question, Subject } from '../types';
 import { Star, ArrowRight, Loader2, PartyPopper, RefreshCcw } from 'lucide-react';
 
@@ -40,52 +39,65 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
 
   const currentQuestion = propQuestions[currentIndex];
 
-  // Inicializar o pool de palavras quando a pergunta muda
+  // Reinicializar estados ao mudar de pergunta
   useEffect(() => {
-    if (currentQuestion?.type === 'word-ordering' && currentQuestion.options) {
-      const shuffled = [...currentQuestion.options]
-        .sort(() => Math.random() - 0.5)
-        .map((text, idx) => ({
-          id: `${currentIndex}-${idx}`,
+    if (currentQuestion) {
+      setIsAnswered(false);
+      setSelectedOption(null);
+      setTextAnswer('');
+      setEarnedInThisQuestion(0);
+
+      if (currentQuestion.type === 'word-ordering' && currentQuestion.options) {
+        // Criar o pool de palavras com IDs únicos para permitir duplicados (ex: dois "O")
+        const pool = currentQuestion.options.map((text, idx) => ({
+          id: `q${currentIndex}-w${idx}`,
           text: text,
           isUsed: false
         }));
-      setWordPool(shuffled);
-      setOrderedIndices([]);
+        setWordPool(pool);
+        setOrderedIndices([]);
+      }
     }
   }, [currentIndex, currentQuestion]);
 
   const toggleWord = (index: number) => {
     if (isAnswered) return;
 
+    const isCurrentlyUsed = wordPool[index].isUsed;
+    
+    if (isCurrentlyUsed) {
+      // Se já está na frase, remover
+      setOrderedIndices(prev => prev.filter(i => i !== index));
+    } else {
+      // Se não está, adicionar ao fim
+      setOrderedIndices(prev => [...prev, index]);
+    }
+
+    // Atualizar estado visual no pool
     setWordPool(prev => {
       const newPool = [...prev];
-      const isCurrentlyUsed = newPool[index].isUsed;
-      
-      if (isCurrentlyUsed) {
-        // Remover da frase
-        setOrderedIndices(prevIndices => prevIndices.filter(i => i !== index));
-      } else {
-        // Adicionar à frase
-        setOrderedIndices(prevIndices => [...prevIndices, index]);
-      }
-      
-      newPool[index].isUsed = !isCurrentlyUsed;
+      newPool[index] = { ...newPool[index], isUsed: !isCurrentlyUsed };
       return newPool;
     });
   };
 
+  const resetSentence = () => {
+    if (isAnswered) return;
+    setOrderedIndices([]);
+    setWordPool(prev => prev.map(w => ({ ...w, isUsed: false })));
+  };
+
   const handleAnswer = () => {
     let isCorrect = false;
-    const cleanAnswer = currentQuestion.correctAnswer.toLowerCase().trim().replace(/[.,!?;]$/, '');
+    const cleanCorrect = currentQuestion.correctAnswer.toLowerCase().trim().replace(/[.,!?;]$/, '');
     
     if (currentQuestion.type === 'multiple-choice') {
       isCorrect = selectedOption === currentQuestion.correctAnswer;
     } else if (currentQuestion.type === 'word-ordering') {
       const constructed = orderedIndices.map(i => wordPool[i].text).join(' ').toLowerCase().trim().replace(/[.,!?;]$/, '');
-      isCorrect = constructed === cleanAnswer;
+      isCorrect = constructed === cleanCorrect;
     } else {
-      isCorrect = textAnswer.toLowerCase().trim().replace(/[.,!?;]$/, '') === cleanAnswer;
+      isCorrect = textAnswer.toLowerCase().trim().replace(/[.,!?;]$/, '') === cleanCorrect;
     }
 
     const value = currentQuestion.complexity * 0.5;
@@ -104,10 +116,6 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
       onComplete(correctCount, totalCredits, propQuestions.length);
     } else {
       setCurrentIndex(c => c + 1);
-      setSelectedOption(null);
-      setTextAnswer('');
-      setIsAnswered(false);
-      setEarnedInThisQuestion(0);
     }
   };
 
@@ -129,7 +137,7 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
         </div>
 
         {/* Pergunta */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center px-2">
           <h2 className="text-2xl sm:text-3xl font-black text-gray-800 leading-tight mb-3">
             {currentQuestion.question}
           </h2>
@@ -170,61 +178,63 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
                 value={textAnswer}
                 disabled={isAnswered}
                 onChange={(e) => setTextAnswer(e.target.value)}
-                placeholder="Escreve aqui..."
-                autoFocus
+                placeholder="Escreve aqui a resposta..."
                 className={`w-full p-6 sm:p-8 rounded-[30px] sm:rounded-[35px] border-4 text-center text-xl sm:text-2xl font-black outline-none transition-all ${
                   isAnswered 
                     ? (textAnswer.toLowerCase().trim() === currentQuestion.correctAnswer.toLowerCase().trim() ? 'bg-green-100 border-green-500 text-green-700' : 'bg-red-100 border-red-500 text-red-700')
                     : 'bg-gray-50 border-gray-200 focus:border-blue-500 focus:bg-white'
                 }`}
               />
+              <p className="mt-2 text-center text-xs text-gray-400 font-bold">Clica no campo para escreveres a resposta!</p>
             </div>
           )}
 
-          {/* Ordenação de Frase */}
+          {/* Ordenação de Frase (Sem Drag & Drop, Apenas Clique - Muito mais estável) */}
           {currentQuestion.type === 'word-ordering' && (
             <div className="space-y-6">
-              {/* Área de Construção (Frase) */}
-              <div className="min-h-[120px] p-6 sm:p-8 bg-blue-50/50 rounded-[30px] border-4 border-dashed border-blue-200 flex flex-wrap gap-2 sm:gap-3 justify-center items-center shadow-inner">
+              {/* Área onde a frase é montada */}
+              <div className="min-h-[140px] p-6 sm:p-8 bg-blue-50/50 rounded-[30px] border-4 border-dashed border-blue-200 flex flex-wrap gap-2 sm:gap-3 justify-center items-center shadow-inner relative">
                 {orderedIndices.map((wordIdx) => (
                   <button 
                     key={`ordered-${wordIdx}`} 
                     disabled={isAnswered}
                     onClick={() => toggleWord(wordIdx)}
-                    className="bg-white px-4 sm:px-5 py-2 sm:py-3 rounded-2xl shadow-md font-black text-blue-600 border-2 border-blue-200 hover:border-red-400 hover:text-red-500 transition-all transform hover:-translate-y-1 active:scale-95 text-base sm:text-lg"
+                    className="bg-white px-4 sm:px-6 py-2 sm:py-3 rounded-2xl shadow-md font-black text-blue-600 border-2 border-blue-200 hover:border-red-400 hover:text-red-500 transition-all transform hover:-translate-y-1 active:scale-95 text-base sm:text-xl"
                   >
                     {wordPool[wordIdx].text}
                   </button>
                 ))}
                 {orderedIndices.length === 0 && (
-                  <span className="text-blue-300 font-bold italic text-sm sm:text-base">Toca nas palavras abaixo para formar a frase</span>
+                  <span className="text-blue-300 font-bold italic text-sm sm:text-base text-center">Toca nas palavras abaixo para montares a frase aqui!</span>
+                )}
+                
+                {orderedIndices.length > 0 && !isAnswered && (
+                  <button 
+                    onClick={resetSentence}
+                    className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-sm text-gray-300 hover:text-orange-500 transition-colors"
+                    title="Recomeçar"
+                  >
+                    <RefreshCcw className="w-5 h-5" />
+                  </button>
                 )}
               </div>
 
               {/* Reserva de Palavras (Pool) */}
-              <div className="flex flex-wrap gap-2 sm:gap-3 justify-center bg-gray-50 p-6 rounded-[30px] border-4 border-gray-100">
+              <div className="flex flex-wrap gap-3 justify-center bg-gray-50 p-6 rounded-[30px] border-4 border-gray-100">
                 {wordPool.map((word, idx) => (
                   <button 
                     key={`pool-${idx}`} 
                     disabled={isAnswered || word.isUsed}
                     onClick={() => toggleWord(idx)}
-                    className={`px-4 sm:px-6 py-2 sm:py-3 rounded-2xl font-black text-base sm:text-lg transition-all shadow-sm border-4 ${
+                    className={`px-5 sm:px-7 py-3 sm:py-4 rounded-2xl font-black text-base sm:text-xl transition-all shadow-sm border-4 ${
                       word.isUsed 
-                        ? 'bg-gray-100 border-gray-200 text-gray-200 scale-90 opacity-40' 
+                        ? 'bg-gray-200 border-gray-300 text-gray-400 scale-90 opacity-0 pointer-events-none' 
                         : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400 hover:scale-105 active:scale-95 shadow-md'
                     }`}
                   >
                     {word.text}
                   </button>
                 ))}
-                <button 
-                  onClick={() => { setOrderedIndices([]); setWordPool(prev => prev.map(w => ({...w, isUsed: false}))); }}
-                  disabled={isAnswered || orderedIndices.length === 0}
-                  className="p-3 text-gray-400 hover:text-orange-500 disabled:opacity-0 transition-all"
-                  title="Recomeçar frase"
-                >
-                  <RefreshCcw className="w-6 h-6" />
-                </button>
               </div>
             </div>
           )}
@@ -247,12 +257,14 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
                   <Star className="w-8 h-8 sm:w-10 sm:h-10 text-red-500" />
                   <div>
                     <p className="text-red-800 font-black text-xl sm:text-2xl tracking-tight">Quase lá!</p>
-                    <p className="text-red-600 font-bold">A resposta certa era: <span className="underline">{currentQuestion.correctAnswer}</span></p>
+                    <p className="text-red-600 font-bold text-sm sm:text-base">A resposta certa era: <span className="underline decoration-2">{currentQuestion.correctAnswer}</span></p>
                   </div>
                 </>
               )}
             </div>
-            <p className="text-gray-600 font-bold italic leading-relaxed text-sm sm:text-base">{currentQuestion.explanation}</p>
+            <p className="text-gray-600 font-bold italic leading-relaxed text-sm sm:text-base mt-2 border-t pt-3 border-black/5">
+              💡 {currentQuestion.explanation}
+            </p>
           </div>
         )}
 
@@ -266,25 +278,26 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
                 (currentQuestion.type === 'text' && !textAnswer.trim()) ||
                 (currentQuestion.type === 'word-ordering' && orderedIndices.length === 0)
               }
-              className="flex-1 bg-blue-500 text-white py-4 sm:py-6 rounded-[25px] sm:rounded-[35px] font-black text-xl sm:text-2xl shadow-xl hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-blue-500 text-white py-5 sm:py-6 rounded-[25px] sm:rounded-[35px] font-black text-xl sm:text-2xl shadow-xl hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-b-8 border-blue-700"
             >
-              Verificar
+              Verificar Resposta
             </button>
           ) : (
             <button
               onClick={nextQuestion}
-              className="flex-1 bg-green-500 text-white py-4 sm:py-6 rounded-[25px] sm:rounded-[35px] font-black text-xl sm:text-2xl shadow-xl hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center gap-3"
+              className="flex-1 bg-green-500 text-white py-5 sm:py-6 rounded-[25px] sm:rounded-[35px] font-black text-xl sm:text-2xl shadow-xl hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center gap-3 border-b-8 border-green-700"
             >
               {currentIndex >= propQuestions.length - 1 ? 'Finalizar!' : 'Próximo Desafio'} <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8" />
             </button>
           )}
         </div>
       </div>
+      
       <button 
         onClick={onExit} 
         className="mt-6 sm:mt-8 text-gray-400 font-bold w-full text-center hover:text-red-400 transition-colors py-2 text-sm sm:text-base"
       >
-        Desistir por agora e sair
+        Sair e guardar progresso
       </button>
     </div>
   );
