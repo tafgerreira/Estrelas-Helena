@@ -1,33 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 
-// No Vite, as variáveis definidas em 'define' no config ficam disponíveis em process.env
+// No Vite, as variáveis definidas em 'define' ficam disponíveis em process.env durante o build
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== '');
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http'));
 
 export const supabase = isSupabaseConfigured 
   ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
 
 if (isSupabaseConfigured) {
-  console.log("✅ Supabase configurado e pronto.");
+  console.log("✅ Supabase pronto para ligar à Cloud.");
 } else {
-  console.warn("⚠️ Supabase não configurado. Verifique as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+  console.warn("⚠️ Variáveis do Supabase não detetadas ou inválidas.");
 }
 
 export const saveToCloud = async (data: { stats: any, prizes: any, worksheets: any }) => {
   if (!supabase) return;
   try {
+    // Usamos upsert em vez de update para criar o registo se ele não existir
     const { error } = await supabase
       .from('user_data')
-      .update({ 
+      .upsert({ 
+        family_id: 'helena_family',
         stats: data.stats, 
         prizes: data.prizes, 
         worksheets: data.worksheets,
         updated_at: new Date().toISOString()
-      })
-      .eq('family_id', 'helena_family');
+      }, { onConflict: 'family_id' });
 
     if (error) throw error;
   } catch (err) {
@@ -43,7 +44,7 @@ export const loadFromCloud = async () => {
       .from('user_data')
       .select('*')
       .eq('family_id', 'helena_family')
-      .single();
+      .maybeSingle(); // maybeSingle não dá erro se não encontrar nada
 
     if (error) throw error;
     return data;
