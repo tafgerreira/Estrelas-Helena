@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Prize, Worksheet, WonPrize, SubjectMetrics } from '../types';
 import { SUBJECT_CONFIG } from '../constants';
 import { resizeImage, getStorageUsage } from '../utils/imageUtils';
+import { isSupabaseConfigured } from '../services/supabaseService';
 import { 
   Plus, Trash2, Image as ImageIcon, ArrowLeft, Settings, Gift, BookOpen, Save, 
   History as HistoryIcon, Euro, Loader2, Upload, BarChart3, Clock, Target, 
   CalendarDays, Zap, Database, AlertCircle, Layers, CheckCircle2, TrendingUp, 
-  Cloud, Copy, Download, Share2, FileText, FileUp
+  Cloud, Copy, Download, Share2, FileText, FileUp, ShieldCheck, ShieldAlert
 } from 'lucide-react';
 
 interface BackofficeProps {
@@ -16,6 +17,7 @@ interface BackofficeProps {
   subjectStats: Record<Subject, SubjectMetrics>;
   doubleCreditDays: number[];
   credits: number;
+  cloudStatus: string;
   onUpdateDoubleCreditDays: (days: number[]) => void;
   onUpdatePrizes: (prizes: Prize[]) => void;
   onUpdateWorksheets: (worksheets: Worksheet[]) => void;
@@ -30,6 +32,7 @@ const Backoffice: React.FC<BackofficeProps> = ({
   subjectStats, 
   doubleCreditDays = [],
   credits,
+  cloudStatus,
   onUpdateDoubleCreditDays,
   onUpdatePrizes, 
   onUpdateWorksheets, 
@@ -114,7 +117,6 @@ const Backoffice: React.FC<BackofficeProps> = ({
       }
     };
     reader.readAsText(file);
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -223,99 +225,84 @@ const Backoffice: React.FC<BackofficeProps> = ({
         <button onClick={() => setActiveTab('performance')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'performance' ? 'bg-green-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><BarChart3 /> Desempenho</button>
         <button onClick={() => setActiveTab('config')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'config' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><CalendarDays /> Regras</button>
         <button onClick={() => setActiveTab('history')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'history' ? 'bg-yellow-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><HistoryIcon /> Histórico</button>
-        <button onClick={() => setActiveTab('sync')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'sync' ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><Cloud /> Sincronização</button>
+        <button onClick={() => setActiveTab('sync')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'sync' ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><Cloud /> Cloud & Sincronização</button>
       </div>
 
-      {/* ABA DE SINCRONIZAÇÃO */}
       {activeTab === 'sync' && (
-        <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-2">
+        <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-2">
+          {/* SECÇÃO DE ESTADO DA CLOUD */}
           <div className="bg-white p-8 rounded-[40px] shadow-sm border-2 border-indigo-100">
-            <h2 className="text-2xl font-black text-gray-800 mb-4">Transferir dados</h2>
+            <h2 className="text-2xl font-black text-gray-800 mb-4 flex items-center gap-3">
+              <Cloud className="text-indigo-500" /> Estado da Ligação Cloud
+            </h2>
+            
+            <div className={`p-6 rounded-3xl border-4 flex flex-col md:flex-row items-center gap-6 ${isSupabaseConfigured ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div className={`p-5 rounded-full ${isSupabaseConfigured ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                {isSupabaseConfigured ? <ShieldCheck className="w-12 h-12" /> : <ShieldAlert className="w-12 h-12" />}
+              </div>
+              <div className="flex-1 text-center md:text-left">
+                <p className={`text-xl font-black ${isSupabaseConfigured ? 'text-green-800' : 'text-red-800'}`}>
+                  {isSupabaseConfigured ? 'Configuração Detetada!' : 'Configuração em Falta'}
+                </p>
+                <p className={`text-sm font-bold ${isSupabaseConfigured ? 'text-green-600' : 'text-red-600'}`}>
+                  {isSupabaseConfigured 
+                    ? `A aplicação está ligada ao Supabase (${cloudStatus === 'online' ? 'Online e Sincronizada' : 'A tentar sincronizar...'})`
+                    : 'A aplicação não encontrou as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente Vercel.'}
+                </p>
+                {!isSupabaseConfigured && (
+                  <div className="mt-4 p-4 bg-white/50 rounded-2xl text-xs text-red-700 font-medium">
+                    <p className="font-black mb-1">Como resolver:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Vai ao painel do Vercel → Settings → Environment Variables</li>
+                      <li>Adiciona VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY</li>
+                      <li>Faz "Redeploy" da aplicação no separador Deployments</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[40px] shadow-sm border-2 border-indigo-100">
+            <h2 className="text-2xl font-black text-gray-800 mb-4">Cópia de Segurança Manual</h2>
             <p className="text-gray-500 mb-6 font-medium leading-relaxed">
-              Guarda um ficheiro com todo o progresso da Helena para abrir noutro iPad ou computador.
+              Mesmo sem Cloud, podes transferir os dados da Helena manualmente entre aparelhos.
             </p>
             
             <div className="space-y-6">
-              {/* EXPORTAR */}
               <div className="p-6 bg-indigo-50 rounded-3xl border-2 border-indigo-100">
                 <h3 className="font-black text-indigo-700 mb-4 flex items-center gap-2"><Download className="w-5 h-5" /> Exportar Dados</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button 
-                    onClick={handleExportFile}
-                    className="bg-white text-indigo-600 border-2 border-indigo-200 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all shadow-sm"
-                  >
+                  <button onClick={handleExportFile} className="bg-white text-indigo-600 border-2 border-indigo-200 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all shadow-sm">
                     <FileText className="w-5 h-5" /> Descarregar .txt
                   </button>
-                  <button 
-                    onClick={handleExportData}
-                    className="bg-indigo-500 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-600 transition-all shadow-md"
-                  >
+                  <button onClick={handleExportData} className="bg-indigo-500 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-600 transition-all shadow-md">
                     <Copy className="w-5 h-5" /> Copiar Código
                   </button>
                 </div>
               </div>
 
-              {/* IMPORTAR */}
               <div className="p-6 bg-white rounded-3xl border-2 border-gray-100">
                 <h3 className="font-black text-gray-700 mb-4 flex items-center gap-2"><FileUp className="w-5 h-5" /> Importar Dados</h3>
-                
                 <div className="space-y-4">
-                  <input 
-                    type="file" 
-                    accept=".txt" 
-                    ref={fileInputRef}
-                    onChange={handleImportFile}
-                    className="hidden" 
-                    id="file-import" 
-                  />
-                  <label 
-                    htmlFor="file-import"
-                    className="w-full bg-blue-50 text-blue-600 border-2 border-dashed border-blue-200 py-6 rounded-2xl font-black flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-blue-100 transition-all"
-                  >
+                  <input type="file" accept=".txt" ref={fileInputRef} onChange={handleImportFile} className="hidden" id="file-import" />
+                  <label htmlFor="file-import" className="w-full bg-blue-50 text-blue-600 border-2 border-dashed border-blue-200 py-6 rounded-2xl font-black flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-blue-100 transition-all">
                     <FileUp className="w-8 h-8" />
                     <span>Selecionar ficheiro .txt do outro aparelho</span>
                   </label>
-
-                  <div className="relative pt-4">
-                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                      <div className="w-full border-t border-gray-100"></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs font-bold uppercase tracking-widest">
-                      <span className="bg-white px-2 text-gray-300">Ou colar código</span>
-                    </div>
-                  </div>
-
-                  <textarea 
-                    value={syncCode}
-                    onChange={(e) => setSyncCode(e.target.value)}
-                    placeholder="Cola o código aqui..."
-                    className="w-full p-4 border-2 border-gray-100 rounded-2xl h-24 text-xs font-mono bg-gray-50 focus:border-indigo-300 outline-none"
-                  />
-                  <button 
-                    disabled={!syncCode}
-                    onClick={handleImport}
-                    className="w-full bg-green-500 disabled:bg-gray-200 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-green-600 transition-all shadow-md"
-                  >
+                  <textarea value={syncCode} onChange={(e) => setSyncCode(e.target.value)} placeholder="Ou cola o código aqui..." className="w-full p-4 border-2 border-gray-100 rounded-2xl h-24 text-xs font-mono bg-gray-50 focus:border-indigo-300 outline-none" />
+                  <button disabled={!syncCode} onClick={handleImport} className="w-full bg-green-500 disabled:bg-gray-200 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-green-600 transition-all shadow-md">
                     {importStatus === 'success' ? <CheckCircle2 /> : <Save />}
                     {importStatus === 'success' ? 'Sincronizado!' : 'Importar Código'}
                   </button>
                 </div>
-                {importStatus === 'error' && <p className="text-red-500 text-xs font-bold mt-2 text-center">Ficheiro ou código inválido!</p>}
               </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 p-6 rounded-[30px] border-2 border-blue-100 flex items-start gap-4">
-            <AlertCircle className="text-blue-500 shrink-0 mt-1" />
-            <div>
-              <p className="text-sm font-bold text-blue-800">Dica:</p>
-              <p className="text-xs text-blue-600 font-medium leading-relaxed">Podes enviar o ficheiro .txt para ti mesmo por e-mail ou WhatsApp e depois carregá-lo noutro aparelho usando o botão acima.</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ABA DE FICHAS */}
+      {/* ... Resto do componente mantém-se igual ... */}
       {activeTab === 'worksheets' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-2">
           <div className="bg-white p-6 rounded-3xl shadow-sm border-2 border-blue-100 h-fit">
@@ -362,7 +349,6 @@ const Backoffice: React.FC<BackofficeProps> = ({
         </div>
       )}
 
-      {/* ABA DE PRÉMIOS */}
       {activeTab === 'prizes' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-2">
           <div className="bg-white p-6 rounded-3xl shadow-sm border-2 border-purple-100 h-fit">
@@ -398,14 +384,12 @@ const Backoffice: React.FC<BackofficeProps> = ({
         </div>
       )}
 
-      {/* ABA DE DESEMPENHO */}
       {activeTab === 'performance' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-bottom-2">
           {Object.values(Subject).map(s => {
             const stats = subjectStats[s] || { totalQuestions: 0, correctAnswers: 0, totalMinutes: 0 };
             const accuracy = stats.totalQuestions > 0 ? Math.round((stats.correctAnswers / stats.totalQuestions) * 100) : 0;
             const config = SUBJECT_CONFIG[s];
-            
             return (
               <div key={s} className="bg-white p-6 rounded-[35px] border-4 border-gray-50 shadow-sm relative overflow-hidden group">
                 <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${config.gradient} opacity-10 rounded-bl-[100px] transition-transform group-hover:scale-110`}></div>
@@ -414,7 +398,6 @@ const Backoffice: React.FC<BackofficeProps> = ({
                     {config.icon}
                   </div>
                   <h3 className="text-xl font-black text-gray-800 mb-6">{s}</h3>
-                  
                   <div className="grid grid-cols-2 gap-4 w-full">
                     <div className="bg-blue-50 p-3 rounded-2xl">
                       <p className="text-[10px] font-black uppercase text-blue-400 mb-1">Precisão</p>
@@ -436,7 +419,6 @@ const Backoffice: React.FC<BackofficeProps> = ({
         </div>
       )}
 
-      {/* ABA DE REGRAS (CONFIG) */}
       {activeTab === 'config' && (
         <div className="max-w-2xl mx-auto bg-white p-8 rounded-[40px] shadow-sm border-2 border-orange-100 animate-in slide-in-from-bottom-2">
           <div className="flex items-center gap-4 mb-8">
@@ -448,7 +430,6 @@ const Backoffice: React.FC<BackofficeProps> = ({
               <p className="text-gray-500 font-medium">Escolha os dias em que a Helena ganha o dobro das estrelas.</p>
             </div>
           </div>
-
           <div className="space-y-3">
             {daysOfWeek.map((day, index) => {
               const isActive = doubleCreditDays.includes(index);
@@ -473,20 +454,17 @@ const Backoffice: React.FC<BackofficeProps> = ({
         </div>
       )}
 
-      {/* ABA DE HISTÓRICO */}
       {activeTab === 'history' && (
         <div className="max-w-4xl mx-auto space-y-4 animate-in slide-in-from-bottom-2">
           <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2">
             <TrendingUp className="text-yellow-500" /> Prémios Conquistados
           </h2>
-          
           {wonHistory.length === 0 && (
             <div className="bg-white p-20 rounded-[40px] text-center border-4 border-dashed border-gray-100">
               <Gift className="w-16 h-16 text-gray-200 mx-auto mb-4" />
               <p className="text-gray-400 font-bold text-xl">A Helena ainda não conquistou prémios. Força!</p>
             </div>
           )}
-
           {wonHistory.map((item, idx) => (
             <div key={idx} className="bg-white p-6 rounded-[35px] shadow-sm border-2 border-gray-50 flex items-center gap-6 group hover:border-yellow-200 transition-all">
               <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-md flex-shrink-0">
