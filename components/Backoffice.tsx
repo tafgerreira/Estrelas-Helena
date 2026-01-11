@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Subject, Prize, Worksheet, WonPrize, SubjectMetrics } from '../types';
 import { SUBJECT_CONFIG } from '../constants';
@@ -18,11 +17,11 @@ interface BackofficeProps {
 }
 
 const Backoffice: React.FC<BackofficeProps> = ({ 
-  prizes, 
-  worksheets, 
-  wonHistory, 
+  prizes = [], 
+  worksheets = [], 
+  wonHistory = [], 
   subjectStats, 
-  doubleCreditDays,
+  doubleCreditDays = [],
   onUpdateDoubleCreditDays,
   onUpdatePrizes, 
   onUpdateWorksheets, 
@@ -32,7 +31,7 @@ const Backoffice: React.FC<BackofficeProps> = ({
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [storageStatus, setStorageStatus] = useState(getStorageUsage());
   
-  const [newPrize, setNewPrize] = useState<Partial<Prize>>({ name: '', cost: 0, image: '' });
+  const [newPrize, setNewPrize] = useState<{name: string, cost: number, image: string}>({ name: '', cost: 0, image: '' });
   const [newWorksheet, setNewWorksheet] = useState<{subject: Subject, images: string[], namePrefix: string}>({
     subject: Subject.PORTUGUESE,
     images: [],
@@ -44,11 +43,11 @@ const Backoffice: React.FC<BackofficeProps> = ({
   }, [prizes, worksheets]);
 
   const handleAddPrize = () => {
-    if (!newPrize.name || newPrize.cost === undefined || !newPrize.image) return;
+    if (!newPrize.name || !newPrize.image) return;
     const prize: Prize = {
       id: Math.random().toString(36).substr(2, 9),
       name: newPrize.name,
-      cost: Number(newPrize.cost),
+      cost: Number(newPrize.cost) || 0,
       image: newPrize.image,
       unlocked: false
     };
@@ -63,7 +62,7 @@ const Backoffice: React.FC<BackofficeProps> = ({
     const worksheet: Worksheet = {
       id: Math.random().toString(36).substr(2, 9),
       subject: newWorksheet.subject,
-      images: newWorksheet.images, // Agrupa todas as imagens aqui
+      images: newWorksheet.images,
       name: newWorksheet.namePrefix || `Ficha de ${newWorksheet.subject} (${new Date().toLocaleDateString()})`,
       date: new Date().toLocaleDateString()
     };
@@ -84,27 +83,23 @@ const Backoffice: React.FC<BackofficeProps> = ({
     setIsProcessingBatch(true);
     const base64Images: string[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      const resized = await resizeImage(base64, 800, 800);
-      base64Images.push(resized);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        const resized = await resizeImage(base64, 800, 800);
+        base64Images.push(resized);
+      }
+      setNewWorksheet(prev => ({ ...prev, images: [...prev.images, ...base64Images] }));
+    } catch (err) {
+      console.error("Erro ao processar imagens:", err);
+    } finally {
+      setIsProcessingBatch(false);
     }
-
-    setNewWorksheet(prev => ({ ...prev, images: [...prev.images, ...base64Images] }));
-    setIsProcessingBatch(false);
-  };
-
-  const toggleDoubleCreditDay = (day: number) => {
-    onUpdateDoubleCreditDays(
-      doubleCreditDays.includes(day) 
-        ? doubleCreditDays.filter(d => d !== day) 
-        : [...doubleCreditDays, day]
-    );
   };
 
   return (
@@ -157,7 +152,7 @@ const Backoffice: React.FC<BackofficeProps> = ({
                   <span className="text-sm font-bold text-gray-500">Selecionar Páginas ({newWorksheet.images.length})</span>
                 </label>
               </div>
-              <button onClick={handleAddWorksheet} disabled={isProcessingBatch || newWorksheet.images.length === 0} className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold flex justify-center">
+              <button onClick={handleAddWorksheet} disabled={isProcessingBatch || newWorksheet.images.length === 0} className="w-full bg-blue-500 text-white py-3 rounded-xl font-black flex justify-center">
                 {isProcessingBatch ? <Loader2 className="animate-spin" /> : 'Guardar Ficha Completa'}
               </button>
             </div>
@@ -186,14 +181,13 @@ const Backoffice: React.FC<BackofficeProps> = ({
         </div>
       )}
 
-      {/* Outras tabs permanecem similares, mantendo a coerência visual */}
       {activeTab === 'prizes' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="bg-white p-6 rounded-3xl shadow-sm border-2 border-purple-100 h-fit">
             <h2 className="text-xl font-bold text-gray-800 mb-6">Novo Prémio</h2>
             <div className="space-y-4">
               <input type="text" placeholder="Nome" value={newPrize.name} onChange={e => setNewPrize({...newPrize, name: e.target.value})} className="w-full p-3 rounded-xl border-2 border-gray-100 mt-1 outline-none" />
-              <input type="number" step="0.01" value={newPrize.cost} onChange={e => setNewPrize({...newPrize, cost: Number(e.target.value)})} className="w-full p-3 rounded-xl border-2 border-gray-100" />
+              <input type="number" step="0.01" value={newPrize.cost} onChange={e => setNewPrize({...newPrize, cost: Number(e.target.value) || 0})} className="w-full p-3 rounded-xl border-2 border-gray-100" />
               <input type="file" accept="image/*" onChange={e => {
                 const f = e.target.files?.[0];
                 if(f) {
