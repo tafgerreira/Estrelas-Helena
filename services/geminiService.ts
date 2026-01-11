@@ -5,15 +5,15 @@ export const generateQuestionsFromImages = async (
   base64Images: string[], 
   subject: Subject
 ): Promise<Question[]> => {
-  // Garantir que temos a chave da API do ambiente
-  const apiKey = process.env.API_KEY || '';
+  const apiKey = process.env.API_KEY;
+  
   if (!apiKey) {
-    console.error("API_KEY não configurada no ambiente.");
+    console.error("API_KEY não encontrada no ambiente. Verifique as configurações do Vercel.");
     return [];
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = "gemini-3-flash-preview";
+  const model = 'gemini-3-flash-preview';
 
   const systemPrompt = `
     És um professor experiente do 1º ciclo (2º ano) em Portugal.
@@ -31,7 +31,7 @@ export const generateQuestionsFromImages = async (
     - 3: Médio (1.50€)
     - 5: Desafio difícil (2.50€)
 
-    Retorna APENAS um JSON válido seguindo o esquema fornecido.
+    Retorna APENAS um JSON válido.
   `;
 
   const responseSchema = {
@@ -70,7 +70,7 @@ export const generateQuestionsFromImages = async (
       contents: {
         parts: [
           ...imageParts,
-          { text: "Lê esta ficha e cria 5 exercícios divertidos para eu resolver." }
+          { text: "Analisa esta ficha e cria 5 exercícios divertidos." }
         ]
       },
       config: {
@@ -81,7 +81,7 @@ export const generateQuestionsFromImages = async (
     });
 
     const text = response.text;
-    if (!text) throw new Error("Resposta vazia da IA");
+    if (!text) return [];
     
     const result = JSON.parse(text);
     return (result.questions || []).map((q: any) => ({
@@ -89,7 +89,7 @@ export const generateQuestionsFromImages = async (
       id: q.id || Math.random().toString(36).substr(2, 9)
     }));
   } catch (error) {
-    console.error("Erro ao gerar perguntas via Gemini:", error);
+    console.error("Erro Gemini:", error);
     return [];
   }
 };
