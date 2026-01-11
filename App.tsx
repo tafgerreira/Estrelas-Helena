@@ -13,7 +13,7 @@ interface SessionProgress {
   currentIndex: number;
   correctCount: number;
   totalCredits: number;
-  worksheetImages?: string[]; // Mudança para array
+  worksheetImages?: string[];
   worksheetId?: string;
 }
 
@@ -33,46 +33,62 @@ const App: React.FC = () => {
     [Subject.ENGLISH]: { totalMinutes: 0, correctAnswers: 0, totalQuestions: 0 },
   };
 
+  const defaultStats: UserStats = {
+    credits: 0,
+    accuracy: 0,
+    totalQuestions: 0,
+    correctAnswers: 0,
+    dailyMinutes: 0,
+    wonHistory: [],
+    subjectStats: initialSubjectStats,
+    recentWorksheetIds: [],
+    doubleCreditDays: [0, 6]
+  };
+
   const [stats, setStats] = useState<UserStats>(() => {
-    const saved = localStorage.getItem('estudos_stats');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (!parsed.subjectStats) parsed.subjectStats = initialSubjectStats;
-      if (!parsed.recentWorksheetIds) parsed.recentWorksheetIds = [];
-      if (!parsed.doubleCreditDays) parsed.doubleCreditDays = [0, 6]; 
-      return parsed;
+    try {
+      const saved = localStorage.getItem('estudos_stats');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed === 'object' && parsed !== null) {
+          if (!parsed.subjectStats) parsed.subjectStats = initialSubjectStats;
+          if (!parsed.recentWorksheetIds) parsed.recentWorksheetIds = [];
+          if (!parsed.doubleCreditDays) parsed.doubleCreditDays = [0, 6]; 
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao carregar stats:", e);
     }
-    return {
-      credits: 0,
-      accuracy: 0,
-      totalQuestions: 0,
-      correctAnswers: 0,
-      dailyMinutes: 0,
-      wonHistory: [],
-      subjectStats: initialSubjectStats,
-      recentWorksheetIds: [],
-      doubleCreditDays: [0, 6]
-    };
+    return defaultStats;
   });
 
   const [prizes, setPrizes] = useState<Prize[]>(() => {
-    const saved = localStorage.getItem('estudos_prizes');
-    return saved ? JSON.parse(saved) : INITIAL_PRIZES;
+    try {
+      const saved = localStorage.getItem('estudos_prizes');
+      return saved ? JSON.parse(saved) : INITIAL_PRIZES;
+    } catch { return INITIAL_PRIZES; }
   });
 
   const [worksheets, setWorksheets] = useState<Worksheet[]>(() => {
-    const saved = localStorage.getItem('estudos_worksheets');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('estudos_worksheets');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [currentQuestions, setCurrentQuestions] = useState<Question[]>(() => {
-    const saved = localStorage.getItem('estudos_current_questions');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('estudos_current_questions');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(() => {
-    const saved = localStorage.getItem('estudos_session_progress');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('estudos_session_progress');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
   });
 
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -139,7 +155,7 @@ const App: React.FC = () => {
     setView('dashboard');
   };
 
-  const handleProgressUpdate = (progress: { currentIndex: number, correctCount: number, totalCredits: number, worksheetImages: string[], questions: Question[] }) => {
+  const handleProgressUpdate = (progress: any) => {
     setSessionProgress({
       currentIndex: progress.currentIndex,
       correctCount: progress.correctCount,
@@ -160,7 +176,15 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {view === 'dashboard' && <Dashboard stats={stats} prizes={prizes} onSelectSubject={(s) => { setSelectedSubject(s); setView('admin'); }} onOpenShop={() => setView('shop')} onOpenAdmin={() => setShowPasswordPrompt(true)} />}
+      {view === 'dashboard' && (
+        <Dashboard 
+          stats={stats} 
+          prizes={prizes} 
+          onSelectSubject={(s) => { setSelectedSubject(s); setView('admin'); }} 
+          onOpenShop={() => setView('shop')} 
+          onOpenAdmin={() => setShowPasswordPrompt(true)} 
+        />
+      )}
 
       {view === 'exercise' && (
         <ExerciseRoom 
@@ -198,19 +222,51 @@ const App: React.FC = () => {
         />
       )}
 
-      {view === 'backoffice' && <Backoffice prizes={prizes} worksheets={worksheets} wonHistory={stats.wonHistory} subjectStats={stats.subjectStats} doubleCreditDays={stats.doubleCreditDays} onUpdateDoubleCreditDays={(d) => setStats(prev => ({...prev, doubleCreditDays: d}))} onUpdatePrizes={setPrizes} onUpdateWorksheets={setWorksheets} onClose={() => setView('dashboard')} />}
+      {view === 'backoffice' && (
+        <Backoffice 
+          prizes={prizes} 
+          worksheets={worksheets} 
+          wonHistory={stats.wonHistory} 
+          subjectStats={stats.subjectStats} 
+          doubleCreditDays={stats.doubleCreditDays} 
+          onUpdateDoubleCreditDays={(d) => setStats(prev => ({...prev, doubleCreditDays: d}))} 
+          onUpdatePrizes={setPrizes} 
+          onUpdateWorksheets={setWorksheets} 
+          onClose={() => setView('dashboard')} 
+        />
+      )}
 
       {showPasswordPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95">
-            <h2 className="text-2xl font-bold mb-4">Modo Pais</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Modo Pais</h2>
+              <button onClick={() => setShowPasswordPrompt(false)}><X className="text-gray-400" /></button>
+            </div>
             <form onSubmit={(e) => {
               e.preventDefault();
-              if(passwordInput === ADMIN_PASSWORD) { setView('backoffice'); setShowPasswordPrompt(false); setPasswordInput(''); setPasswordError(false); }
-              else setPasswordError(true);
+              if(passwordInput === ADMIN_PASSWORD) { 
+                setView('backoffice'); 
+                setShowPasswordPrompt(false); 
+                setPasswordInput(''); 
+                setPasswordError(false); 
+              } else {
+                setPasswordError(true);
+              }
             }}>
-              <input type="password" autoFocus value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className={`w-full p-4 border-2 rounded-xl mb-4 text-center text-xl font-bold tracking-widest ${passwordError ? 'border-red-500 bg-red-50' : 'border-gray-100'}`} placeholder="SENHA" />
-              <button type="submit" className="w-full bg-blue-500 text-white py-4 rounded-xl font-bold">Entrar</button>
+              <p className="text-gray-500 mb-4 text-sm">Insira o código de acesso para gerir fichas e prémios.</p>
+              <input 
+                type="password" 
+                autoFocus 
+                value={passwordInput} 
+                onChange={(e) => setPasswordInput(e.target.value)} 
+                className={`w-full p-4 border-2 rounded-xl mb-4 text-center text-2xl font-bold tracking-widest ${passwordError ? 'border-red-500 bg-red-50' : 'border-gray-100 focus:border-blue-500'}`} 
+                placeholder="****" 
+              />
+              {passwordError && <p className="text-red-500 text-xs font-bold text-center mb-4">Código incorreto! Tente 1234.</p>}
+              <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg transition-all">
+                Entrar no Painel
+              </button>
             </form>
           </div>
         </div>
