@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Subject, UserStats, Question, Prize, Worksheet, WonPrize, SubjectMetrics } from './types';
 import { INITIAL_PRIZES } from './constants';
@@ -116,6 +115,29 @@ const App: React.FC = () => {
     else localStorage.removeItem('estudos_session_progress');
   }, [sessionProgress]);
 
+  const handleImportAllData = (encodedData: string) => {
+    try {
+      const decoded = decodeURIComponent(escape(atob(encodedData)));
+      const data = JSON.parse(decoded);
+      
+      if (data.prizes) setPrizes(data.prizes);
+      if (data.worksheets) setWorksheets(data.worksheets);
+      if (data.stats) {
+        setStats({
+          ...defaultStats,
+          ...data.stats,
+          credits: data.stats.credits ?? 0,
+        });
+      }
+      // Limpar sessões antigas para evitar conflitos
+      setCurrentQuestions([]);
+      setSessionProgress(null);
+    } catch (e) {
+      console.error("Falha ao importar dados:", e);
+      throw new Error("Dados inválidos");
+    }
+  };
+
   const handleExerciseComplete = (correct: number, earnedCredits: number, finalQuestionsCount: number) => {
     const currentSub = selectedSubject || Subject.PORTUGUESE;
     const sessionMinutes = 10;
@@ -229,9 +251,11 @@ const App: React.FC = () => {
           wonHistory={stats.wonHistory} 
           subjectStats={stats.subjectStats} 
           doubleCreditDays={stats.doubleCreditDays} 
+          credits={stats.credits}
           onUpdateDoubleCreditDays={(d) => setStats(prev => ({...prev, doubleCreditDays: d}))} 
           onUpdatePrizes={setPrizes} 
           onUpdateWorksheets={setWorksheets} 
+          onImportData={handleImportAllData}
           onClose={() => setView('dashboard')} 
         />
       )}
