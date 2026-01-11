@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { Subject, UserStats, Question, Prize, Worksheet, WonPrize, SubjectMetrics } from './types';
 import { INITIAL_PRIZES } from './constants';
 import Dashboard from './components/Dashboard';
@@ -6,7 +7,8 @@ import ExerciseRoom from './components/ExerciseRoom';
 import Shop from './components/Shop';
 import WorksheetUploader from './components/WorksheetUploader';
 import Backoffice from './components/Backoffice';
-import { Lock, X, AlertTriangle } from 'lucide-react';
+import { Lock, X, AlertTriangle, CloudRain, CloudCheck, RefreshCw, WifiOff } from 'lucide-react';
+import { supabase, saveToCloud, loadFromCloud, isSupabaseConfigured } from './services/supabaseService';
 
 interface SessionProgress {
   currentIndex: number;
@@ -22,6 +24,7 @@ const App: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'online' | 'error'>('offline');
 
   const ADMIN_PASSWORD = '1234';
   
@@ -44,76 +47,77 @@ const App: React.FC = () => {
     doubleCreditDays: [0, 6]
   };
 
-  const [stats, setStats] = useState<UserStats>(() => {
-    try {
-      const saved = localStorage.getItem('estudos_stats');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed === 'object' && parsed !== null) {
-          if (!parsed.subjectStats) parsed.subjectStats = initialSubjectStats;
-          if (!parsed.recentWorksheetIds) parsed.recentWorksheetIds = [];
-          if (!parsed.doubleCreditDays) parsed.doubleCreditDays = [0, 6]; 
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.error("Erro ao carregar stats:", e);
-    }
-    return defaultStats;
-  });
-
-  const [prizes, setPrizes] = useState<Prize[]>(() => {
-    try {
-      const saved = localStorage.getItem('estudos_prizes');
-      return saved ? JSON.parse(saved) : INITIAL_PRIZES;
-    } catch { return INITIAL_PRIZES; }
-  });
-
-  const [worksheets, setWorksheets] = useState<Worksheet[]>(() => {
-    try {
-      const saved = localStorage.getItem('estudos_worksheets');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-
-  const [currentQuestions, setCurrentQuestions] = useState<Question[]>(() => {
-    try {
-      const saved = localStorage.getItem('estudos_current_questions');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-
-  const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(() => {
-    try {
-      const saved = localStorage.getItem('estudos_session_progress');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
-
+  const [stats, setStats] = useState<UserStats>(defaultStats);
+  const [prizes, setPrizes] = useState<Prize[]>(INITIAL_PRIZES);
+  const [worksheets, setWorksheets] = useState<Worksheet[]>([]);
+  const [currentQuestions, setCurrentQuestions] = useState<Question[]>([]);
+  const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
-  const safeSave = (key: string, value: any) => {
+  const initData = async () => {
+    if (!isSupabaseConfigured) {
+      setCloudStatus('offline');
+      loadFromLocalStorage();
+      return;
+    }
+
+    setCloudStatus('syncing');
     try {
-      localStorage.setItem(key, JSON.stringify(value));
-      setStorageError(null);
-    } catch (e) {
-      if (e instanceof Error && e.name === 'QuotaExceededError') {
-        setStorageError("A memória está cheia! Peça aos seus pais para apagar fichas antigas.");
+      const cloudData = await loadFromCloud();
+      if (cloudData) {
+        setStats(cloudData.stats || defaultStats);
+        setPrizes(cloudData.prizes || INITIAL_PRIZES);
+        setWorksheets(cloudData.worksheets || []);
+        setCloudStatus('online');
+      } else {
+        setCloudStatus('error');
+        loadFromLocalStorage();
       }
+    } catch (e) {
+      setCloudStatus('error');
+      loadFromLocalStorage();
     }
   };
 
-  useEffect(() => { safeSave('estudos_stats', stats); }, [stats]);
-  useEffect(() => { safeSave('estudos_prizes', prizes); }, [prizes]);
-  useEffect(() => { safeSave('estudos_worksheets', worksheets); }, [worksheets]);
+  const loadFromLocalStorage = () => {
+    const savedStats = localStorage.getItem('estudos_stats');
+    const savedPrizes = localStorage.getItem('estudos_prizes');
+    const savedWorksheets = localStorage.getItem('estudos_worksheets');
+    
+    if (savedStats) setStats(JSON.parse(savedStats));
+    if (savedPrizes) setPrizes(JSON.parse(savedPrizes));
+    if (savedWorksheets) setWorksheets(JSON.parse(savedWorksheets));
+  };
+
   useEffect(() => {
-    if (currentQuestions.length > 0) safeSave('estudos_current_questions', currentQuestions);
-    else localStorage.removeItem('estudos_current_questions');
-  }, [currentQuestions]);
+    initData();
+    const savedSession = localStorage.getItem('estudos_session_progress');
+    if (savedSession) setSessionProgress(JSON.parse(savedSession));
+    const savedQs = localStorage.getItem('estudos_current_questions');
+    if (savedQs) setCurrentQuestions(JSON.parse(savedQs));
+  }, []);
+
   useEffect(() => {
-    if (sessionProgress) safeSave('estudos_session_progress', sessionProgress);
-    else localStorage.removeItem('estudos_session_progress');
-  }, [sessionProgress]);
+    const sync = async () => {
+      // Backup local imediato
+      localStorage.setItem('estudos_stats', JSON.stringify(stats));
+      localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
+      localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
+
+      if (!isSupabaseConfigured) return;
+
+      setCloudStatus('syncing');
+      try {
+        await saveToCloud({ stats, prizes, worksheets });
+        setCloudStatus('online');
+      } catch (e) {
+        setCloudStatus('error');
+      }
+    };
+
+    const timeoutId = setTimeout(sync, 1500);
+    return () => clearTimeout(timeoutId);
+  }, [stats, prizes, worksheets]);
 
   const handleImportAllData = (encodedData: string) => {
     try {
@@ -129,11 +133,9 @@ const App: React.FC = () => {
           credits: data.stats.credits ?? 0,
         });
       }
-      // Limpar sessões antigas para evitar conflitos
       setCurrentQuestions([]);
       setSessionProgress(null);
     } catch (e) {
-      console.error("Falha ao importar dados:", e);
       throw new Error("Dados inválidos");
     }
   };
@@ -177,19 +179,33 @@ const App: React.FC = () => {
     setView('dashboard');
   };
 
-  const handleProgressUpdate = (progress: any) => {
-    setSessionProgress({
-      currentIndex: progress.currentIndex,
-      correctCount: progress.correctCount,
-      totalCredits: progress.totalCredits,
-      worksheetImages: progress.worksheetImages,
-      worksheetId: sessionProgress?.worksheetId
-    });
-    setCurrentQuestions(progress.questions);
-  };
-
   return (
     <div className="min-h-screen bg-[#f0f9ff] pb-12">
+      {/* Indicador de Cloud Sync flutuante */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <button 
+          onClick={initData}
+          title={isSupabaseConfigured ? "Clique para re-sincronizar" : "Cloud não configurada"}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-xl backdrop-blur-md border-2 transition-all active:scale-95 ${
+          cloudStatus === 'online' ? 'bg-green-100 text-green-600 border-green-300' :
+          cloudStatus === 'syncing' ? 'bg-blue-100 text-blue-600 border-blue-300 animate-pulse' :
+          cloudStatus === 'error' ? 'bg-red-100 text-red-600 border-red-300' :
+          'bg-gray-100 text-gray-500 border-gray-300 opacity-60'
+        }`}>
+          {cloudStatus === 'online' ? <CloudCheck className="w-4 h-4" /> : 
+           cloudStatus === 'syncing' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 
+           cloudStatus === 'error' ? <AlertTriangle className="w-4 h-4" /> :
+           <WifiOff className="w-4 h-4" />}
+          
+          <span className="hidden sm:inline">
+            {cloudStatus === 'online' ? 'Cloud Ligada' : 
+             cloudStatus === 'syncing' ? 'Sincronizando...' : 
+             cloudStatus === 'error' ? 'Erro de Ligação' :
+             'Modo Apenas Local'}
+          </span>
+        </button>
+      </div>
+
       {storageError && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
           <AlertTriangle className="w-6 h-6" />
@@ -216,7 +232,10 @@ const App: React.FC = () => {
           initialIndex={sessionProgress?.currentIndex || 0}
           initialCorrectCount={sessionProgress?.correctCount || 0}
           initialTotalCredits={sessionProgress?.totalCredits || 0}
-          onProgressUpdate={handleProgressUpdate}
+          onProgressUpdate={(p) => {
+            setSessionProgress({ ...p, worksheetId: sessionProgress?.worksheetId });
+            setCurrentQuestions(p.questions);
+          }}
           onComplete={handleExerciseComplete}
           onExit={() => setView('dashboard')}
         />
@@ -252,6 +271,7 @@ const App: React.FC = () => {
           subjectStats={stats.subjectStats} 
           doubleCreditDays={stats.doubleCreditDays} 
           credits={stats.credits}
+          cloudStatus={cloudStatus}
           onUpdateDoubleCreditDays={(d) => setStats(prev => ({...prev, doubleCreditDays: d}))} 
           onUpdatePrizes={setPrizes} 
           onUpdateWorksheets={setWorksheets} 
