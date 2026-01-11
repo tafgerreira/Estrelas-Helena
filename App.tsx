@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Subject, UserStats, Question, Prize, Worksheet, WonPrize, SubjectMetrics } from './types';
 import { INITIAL_PRIZES } from './constants';
@@ -7,7 +6,7 @@ import ExerciseRoom from './components/ExerciseRoom';
 import Shop from './components/Shop';
 import WorksheetUploader from './components/WorksheetUploader';
 import Backoffice from './components/Backoffice';
-import { Lock, X, AlertTriangle, CloudRain, CloudCheck, RefreshCw, WifiOff } from 'lucide-react';
+import { Lock, X, AlertTriangle, Cloud, RefreshCw, WifiOff } from 'lucide-react';
 import { supabase, saveToCloud, loadFromCloud, isSupabaseConfigured } from './services/supabaseService';
 
 interface SessionProgress {
@@ -99,7 +98,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const sync = async () => {
-      // Backup local imediato
       localStorage.setItem('estudos_stats', JSON.stringify(stats));
       localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
       localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
@@ -181,7 +179,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f0f9ff] pb-12">
-      {/* Indicador de Cloud Sync flutuante */}
       <div className="fixed bottom-4 right-4 z-50">
         <button 
           onClick={initData}
@@ -192,7 +189,7 @@ const App: React.FC = () => {
           cloudStatus === 'error' ? 'bg-red-100 text-red-600 border-red-300' :
           'bg-gray-100 text-gray-500 border-gray-300 opacity-60'
         }`}>
-          {cloudStatus === 'online' ? <CloudCheck className="w-4 h-4" /> : 
+          {cloudStatus === 'online' ? <Cloud className="w-4 h-4" /> : 
            cloudStatus === 'syncing' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 
            cloudStatus === 'error' ? <AlertTriangle className="w-4 h-4" /> :
            <WifiOff className="w-4 h-4" />}
