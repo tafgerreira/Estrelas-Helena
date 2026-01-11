@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// No Vite, as variáveis definidas em 'define' ficam disponíveis em process.env durante o build
+// No Vite, as variáveis definidas em 'define' no vite.config.ts ficam disponíveis em process.env
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -19,7 +19,6 @@ if (isSupabaseConfigured) {
 export const saveToCloud = async (data: { stats: any, prizes: any, worksheets: any }) => {
   if (!supabase) return;
   try {
-    // Usamos upsert em vez de update para criar o registo se ele não existir
     const { error } = await supabase
       .from('user_data')
       .upsert({ 
@@ -44,7 +43,7 @@ export const loadFromCloud = async () => {
       .from('user_data')
       .select('*')
       .eq('family_id', 'helena_family')
-      .maybeSingle(); // maybeSingle não dá erro se não encontrar nada
+      .maybeSingle();
 
     if (error) throw error;
     return data;
