@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question, Subject } from "../types";
 
@@ -6,8 +5,15 @@ export const generateQuestionsFromImages = async (
   base64Images: string[], 
   subject: Subject
 ): Promise<Question[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = "gemini-3-pro-preview";
+  // Garantir que temos a chave da API do ambiente
+  const apiKey = process.env.API_KEY || '';
+  if (!apiKey) {
+    console.error("API_KEY não configurada no ambiente.");
+    return [];
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const model = "gemini-3-flash-preview";
 
   const systemPrompt = `
     És um professor experiente do 1º ciclo (2º ano) em Portugal.
@@ -78,7 +84,7 @@ export const generateQuestionsFromImages = async (
     if (!text) throw new Error("Resposta vazia da IA");
     
     const result = JSON.parse(text);
-    return result.questions.map((q: any) => ({
+    return (result.questions || []).map((q: any) => ({
       ...q,
       id: q.id || Math.random().toString(36).substr(2, 9)
     }));
