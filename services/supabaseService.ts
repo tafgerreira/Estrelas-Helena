@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 // No Vite, as variáveis definidas em 'define' no vite.config.ts ficam disponíveis em process.env
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+// Tentamos ler de process.env (injetado pelo define) ou de import.meta.env (padrão Vite)
+const supabaseUrl = process.env.VITE_SUPABASE_URL || (import.meta as any).env?.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http'));
 
