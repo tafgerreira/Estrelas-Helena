@@ -6,14 +6,19 @@ export default defineConfig({
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
     'process.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
-    'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ''),
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
-    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || '')
+    'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || '')
   },
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'esbuild'
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': ['react', 'react-dom', 'lucide-react', '@supabase/supabase-js']
+        }
+      }
+    }
   },
   server: {
     port: 3000
