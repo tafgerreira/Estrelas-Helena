@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Prize, Worksheet, WonPrize, SubjectMetrics } from '../types';
 import { SUBJECT_CONFIG } from '../constants';
 import { resizeImage, getStorageUsage } from '../utils/imageUtils';
-import { Plus, Trash2, Image as ImageIcon, ArrowLeft, Settings, Gift, BookOpen, Save, History as HistoryIcon, Euro, Loader2, Upload, BarChart3, Clock, Target, CalendarDays, Zap, Database, AlertCircle, Layers, CheckCircle2, TrendingUp, Cloud, Copy, Download, Share2 } from 'lucide-react';
+import { 
+  Plus, Trash2, Image as ImageIcon, ArrowLeft, Settings, Gift, BookOpen, Save, 
+  History as HistoryIcon, Euro, Loader2, Upload, BarChart3, Clock, Target, 
+  CalendarDays, Zap, Database, AlertCircle, Layers, CheckCircle2, TrendingUp, 
+  Cloud, Copy, Download, Share2, FileText, FileUp
+} from 'lucide-react';
 
 interface BackofficeProps {
   prizes: Prize[];
@@ -36,6 +41,7 @@ const Backoffice: React.FC<BackofficeProps> = ({
   const [storageStatus, setStorageStatus] = useState(getStorageUsage());
   const [syncCode, setSyncCode] = useState('');
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [newPrize, setNewPrize] = useState<{name: string, cost: number, image: string}>({ name: '', cost: 0, image: '' });
   const [newWorksheet, setNewWorksheet] = useState<{subject: Subject, images: string[], namePrefix: string}>({
@@ -58,7 +64,7 @@ const Backoffice: React.FC<BackofficeProps> = ({
     }
   };
 
-  const handleExportData = () => {
+  const generateBackupData = () => {
     const data = {
       prizes,
       worksheets,
@@ -70,17 +76,54 @@ const Backoffice: React.FC<BackofficeProps> = ({
       }
     };
     const json = JSON.stringify(data);
-    const encoded = btoa(unescape(encodeURIComponent(json)));
+    return btoa(unescape(encodeURIComponent(json)));
+  };
+
+  const handleExportData = () => {
+    const encoded = generateBackupData();
     navigator.clipboard.writeText(encoded);
-    alert("Código de sincronização copiado para a área de transferência! Cola-o no outro dispositivo.");
+    alert("Código de sincronização copiado! Podes colá-lo noutro dispositivo.");
+  };
+
+  const handleExportFile = () => {
+    const encoded = generateBackupData();
+    const blob = new Blob([encoded], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `helena_progresso_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      try {
+        onImportData(content);
+        setImportStatus('success');
+        setTimeout(() => setImportStatus('idle'), 3000);
+      } catch (err) {
+        setImportStatus('error');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleImport = () => {
     try {
       onImportData(syncCode);
       setImportStatus('success');
-      setTimeout(() => setImportStatus('idle'), 3000);
       setSyncCode('');
+      setTimeout(() => setImportStatus('idle'), 3000);
     } catch (e) {
       setImportStatus('error');
     }
@@ -189,39 +232,75 @@ const Backoffice: React.FC<BackofficeProps> = ({
           <div className="bg-white p-8 rounded-[40px] shadow-sm border-2 border-indigo-100">
             <h2 className="text-2xl font-black text-gray-800 mb-4">Transferir dados</h2>
             <p className="text-gray-500 mb-6 font-medium leading-relaxed">
-              Como a Helena usa vários aparelhos, podes usar esta ferramenta para passar as fichas e as estrelas entre eles. No futuro, isto será automático através da Cloud (Supabase/Firebase).
+              Guarda um ficheiro com todo o progresso da Helena para abrir noutro iPad ou computador.
             </p>
             
             <div className="space-y-6">
+              {/* EXPORTAR */}
               <div className="p-6 bg-indigo-50 rounded-3xl border-2 border-indigo-100">
-                <h3 className="font-black text-indigo-700 mb-2 flex items-center gap-2"><Download className="w-5 h-5" /> Opção A: Copiar deste dispositivo</h3>
-                <p className="text-sm text-indigo-600 mb-4">Gera um código com todo o progresso atual para colares noutro aparelho.</p>
-                <button 
-                  onClick={handleExportData}
-                  className="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-600 transition-all shadow-md"
-                >
-                  <Copy className="w-5 h-5" /> Copiar Código de Segurança
-                </button>
+                <h3 className="font-black text-indigo-700 mb-4 flex items-center gap-2"><Download className="w-5 h-5" /> Exportar Dados</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button 
+                    onClick={handleExportFile}
+                    className="bg-white text-indigo-600 border-2 border-indigo-200 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all shadow-sm"
+                  >
+                    <FileText className="w-5 h-5" /> Descarregar .txt
+                  </button>
+                  <button 
+                    onClick={handleExportData}
+                    className="bg-indigo-500 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-600 transition-all shadow-md"
+                  >
+                    <Copy className="w-5 h-5" /> Copiar Código
+                  </button>
+                </div>
               </div>
 
+              {/* IMPORTAR */}
               <div className="p-6 bg-white rounded-3xl border-2 border-gray-100">
-                <h3 className="font-black text-gray-700 mb-2 flex items-center gap-2"><Share2 className="w-5 h-5" /> Opção B: Importar de outro dispositivo</h3>
-                <p className="text-sm text-gray-500 mb-4">Cola o código que copiaste do outro aparelho para atualizar este.</p>
-                <textarea 
-                  value={syncCode}
-                  onChange={(e) => setSyncCode(e.target.value)}
-                  placeholder="Cola o código aqui..."
-                  className="w-full p-4 border-2 border-gray-100 rounded-2xl mb-4 h-32 text-xs font-mono bg-gray-50 focus:border-indigo-300 outline-none"
-                />
-                <button 
-                  disabled={!syncCode}
-                  onClick={handleImport}
-                  className="w-full bg-green-500 disabled:bg-gray-200 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-green-600 transition-all shadow-md"
-                >
-                  {importStatus === 'success' ? <CheckCircle2 /> : <Save />}
-                  {importStatus === 'success' ? 'Dados Sincronizados!' : 'Guardar e Sincronizar'}
-                </button>
-                {importStatus === 'error' && <p className="text-red-500 text-xs font-bold mt-2 text-center">Código inválido! Tenta copiar novamente.</p>}
+                <h3 className="font-black text-gray-700 mb-4 flex items-center gap-2"><FileUp className="w-5 h-5" /> Importar Dados</h3>
+                
+                <div className="space-y-4">
+                  <input 
+                    type="file" 
+                    accept=".txt" 
+                    ref={fileInputRef}
+                    onChange={handleImportFile}
+                    className="hidden" 
+                    id="file-import" 
+                  />
+                  <label 
+                    htmlFor="file-import"
+                    className="w-full bg-blue-50 text-blue-600 border-2 border-dashed border-blue-200 py-6 rounded-2xl font-black flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-blue-100 transition-all"
+                  >
+                    <FileUp className="w-8 h-8" />
+                    <span>Selecionar ficheiro .txt do outro aparelho</span>
+                  </label>
+
+                  <div className="relative pt-4">
+                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                      <div className="w-full border-t border-gray-100"></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs font-bold uppercase tracking-widest">
+                      <span className="bg-white px-2 text-gray-300">Ou colar código</span>
+                    </div>
+                  </div>
+
+                  <textarea 
+                    value={syncCode}
+                    onChange={(e) => setSyncCode(e.target.value)}
+                    placeholder="Cola o código aqui..."
+                    className="w-full p-4 border-2 border-gray-100 rounded-2xl h-24 text-xs font-mono bg-gray-50 focus:border-indigo-300 outline-none"
+                  />
+                  <button 
+                    disabled={!syncCode}
+                    onClick={handleImport}
+                    className="w-full bg-green-500 disabled:bg-gray-200 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-green-600 transition-all shadow-md"
+                  >
+                    {importStatus === 'success' ? <CheckCircle2 /> : <Save />}
+                    {importStatus === 'success' ? 'Sincronizado!' : 'Importar Código'}
+                  </button>
+                </div>
+                {importStatus === 'error' && <p className="text-red-500 text-xs font-bold mt-2 text-center">Ficheiro ou código inválido!</p>}
               </div>
             </div>
           </div>
@@ -229,8 +308,8 @@ const Backoffice: React.FC<BackofficeProps> = ({
           <div className="bg-blue-50 p-6 rounded-[30px] border-2 border-blue-100 flex items-start gap-4">
             <AlertCircle className="text-blue-500 shrink-0 mt-1" />
             <div>
-              <p className="text-sm font-bold text-blue-800">Dica Técnica:</p>
-              <p className="text-xs text-blue-600 font-medium">Para uma sincronização totalmente automática e real-time, podes ligar esta app ao <strong>Supabase (PostgreSQL)</strong>. É grátis e o código está preparado para essa transição.</p>
+              <p className="text-sm font-bold text-blue-800">Dica:</p>
+              <p className="text-xs text-blue-600 font-medium leading-relaxed">Podes enviar o ficheiro .txt para ti mesmo por e-mail ou WhatsApp e depois carregá-lo noutro aparelho usando o botão acima.</p>
             </div>
           </div>
         </div>
