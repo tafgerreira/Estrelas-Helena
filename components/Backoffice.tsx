@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subject, Prize, Worksheet, WonPrize, SubjectMetrics } from '../types';
 import { SUBJECT_CONFIG } from '../constants';
 import { resizeImage, getStorageUsage } from '../utils/imageUtils';
-import { Plus, Trash2, Image as ImageIcon, ArrowLeft, Settings, Gift, BookOpen, Save, History as HistoryIcon, Euro, Loader2, Upload, BarChart3, Clock, Target, CalendarDays, Zap, Database, AlertCircle, Layers, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Image as ImageIcon, ArrowLeft, Settings, Gift, BookOpen, Save, History as HistoryIcon, Euro, Loader2, Upload, BarChart3, Clock, Target, CalendarDays, Zap, Database, AlertCircle, Layers, CheckCircle2, TrendingUp, Cloud, Copy, Download, Share2 } from 'lucide-react';
 
 interface BackofficeProps {
   prizes: Prize[];
@@ -10,9 +10,11 @@ interface BackofficeProps {
   wonHistory: WonPrize[];
   subjectStats: Record<Subject, SubjectMetrics>;
   doubleCreditDays: number[];
+  credits: number;
   onUpdateDoubleCreditDays: (days: number[]) => void;
   onUpdatePrizes: (prizes: Prize[]) => void;
   onUpdateWorksheets: (worksheets: Worksheet[]) => void;
+  onImportData: (data: string) => void;
   onClose: () => void;
 }
 
@@ -22,14 +24,18 @@ const Backoffice: React.FC<BackofficeProps> = ({
   wonHistory = [], 
   subjectStats, 
   doubleCreditDays = [],
+  credits,
   onUpdateDoubleCreditDays,
   onUpdatePrizes, 
   onUpdateWorksheets, 
+  onImportData,
   onClose 
 }) => {
-  const [activeTab, setActiveTab] = useState<'prizes' | 'worksheets' | 'history' | 'performance' | 'config'>('prizes');
+  const [activeTab, setActiveTab] = useState<'prizes' | 'worksheets' | 'history' | 'performance' | 'config' | 'sync'>('prizes');
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [storageStatus, setStorageStatus] = useState(getStorageUsage());
+  const [syncCode, setSyncCode] = useState('');
+  const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
   const [newPrize, setNewPrize] = useState<{name: string, cost: number, image: string}>({ name: '', cost: 0, image: '' });
   const [newWorksheet, setNewWorksheet] = useState<{subject: Subject, images: string[], namePrefix: string}>({
@@ -49,6 +55,34 @@ const Backoffice: React.FC<BackofficeProps> = ({
       onUpdateDoubleCreditDays(doubleCreditDays.filter(d => d !== dayIndex));
     } else {
       onUpdateDoubleCreditDays([...doubleCreditDays, dayIndex]);
+    }
+  };
+
+  const handleExportData = () => {
+    const data = {
+      prizes,
+      worksheets,
+      stats: {
+        credits,
+        wonHistory,
+        subjectStats,
+        doubleCreditDays
+      }
+    };
+    const json = JSON.stringify(data);
+    const encoded = btoa(unescape(encodeURIComponent(json)));
+    navigator.clipboard.writeText(encoded);
+    alert("Código de sincronização copiado para a área de transferência! Cola-o no outro dispositivo.");
+  };
+
+  const handleImport = () => {
+    try {
+      onImportData(syncCode);
+      setImportStatus('success');
+      setTimeout(() => setImportStatus('idle'), 3000);
+      setSyncCode('');
+    } catch (e) {
+      setImportStatus('error');
     }
   };
 
@@ -83,7 +117,9 @@ const Backoffice: React.FC<BackofficeProps> = ({
   };
 
   const handleDeleteWorksheet = (id: string) => {
-    onUpdateWorksheets(worksheets.filter(w => w.id !== id));
+    if(confirm("Tens a certeza que queres apagar esta ficha?")) {
+      onUpdateWorksheets(worksheets.filter(w => w.id !== id));
+    }
   };
 
   const handleMultipleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,7 +180,61 @@ const Backoffice: React.FC<BackofficeProps> = ({
         <button onClick={() => setActiveTab('performance')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'performance' ? 'bg-green-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><BarChart3 /> Desempenho</button>
         <button onClick={() => setActiveTab('config')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'config' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><CalendarDays /> Regras</button>
         <button onClick={() => setActiveTab('history')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'history' ? 'bg-yellow-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><HistoryIcon /> Histórico</button>
+        <button onClick={() => setActiveTab('sync')} className={`px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all ${activeTab === 'sync' ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white text-gray-500'}`}><Cloud /> Sincronização</button>
       </div>
+
+      {/* ABA DE SINCRONIZAÇÃO */}
+      {activeTab === 'sync' && (
+        <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-2">
+          <div className="bg-white p-8 rounded-[40px] shadow-sm border-2 border-indigo-100">
+            <h2 className="text-2xl font-black text-gray-800 mb-4">Transferir dados</h2>
+            <p className="text-gray-500 mb-6 font-medium leading-relaxed">
+              Como a Helena usa vários aparelhos, podes usar esta ferramenta para passar as fichas e as estrelas entre eles. No futuro, isto será automático através da Cloud (Supabase/Firebase).
+            </p>
+            
+            <div className="space-y-6">
+              <div className="p-6 bg-indigo-50 rounded-3xl border-2 border-indigo-100">
+                <h3 className="font-black text-indigo-700 mb-2 flex items-center gap-2"><Download className="w-5 h-5" /> Opção A: Copiar deste dispositivo</h3>
+                <p className="text-sm text-indigo-600 mb-4">Gera um código com todo o progresso atual para colares noutro aparelho.</p>
+                <button 
+                  onClick={handleExportData}
+                  className="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-600 transition-all shadow-md"
+                >
+                  <Copy className="w-5 h-5" /> Copiar Código de Segurança
+                </button>
+              </div>
+
+              <div className="p-6 bg-white rounded-3xl border-2 border-gray-100">
+                <h3 className="font-black text-gray-700 mb-2 flex items-center gap-2"><Share2 className="w-5 h-5" /> Opção B: Importar de outro dispositivo</h3>
+                <p className="text-sm text-gray-500 mb-4">Cola o código que copiaste do outro aparelho para atualizar este.</p>
+                <textarea 
+                  value={syncCode}
+                  onChange={(e) => setSyncCode(e.target.value)}
+                  placeholder="Cola o código aqui..."
+                  className="w-full p-4 border-2 border-gray-100 rounded-2xl mb-4 h-32 text-xs font-mono bg-gray-50 focus:border-indigo-300 outline-none"
+                />
+                <button 
+                  disabled={!syncCode}
+                  onClick={handleImport}
+                  className="w-full bg-green-500 disabled:bg-gray-200 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-green-600 transition-all shadow-md"
+                >
+                  {importStatus === 'success' ? <CheckCircle2 /> : <Save />}
+                  {importStatus === 'success' ? 'Dados Sincronizados!' : 'Guardar e Sincronizar'}
+                </button>
+                {importStatus === 'error' && <p className="text-red-500 text-xs font-bold mt-2 text-center">Código inválido! Tenta copiar novamente.</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-6 rounded-[30px] border-2 border-blue-100 flex items-start gap-4">
+            <AlertCircle className="text-blue-500 shrink-0 mt-1" />
+            <div>
+              <p className="text-sm font-bold text-blue-800">Dica Técnica:</p>
+              <p className="text-xs text-blue-600 font-medium">Para uma sincronização totalmente automática e real-time, podes ligar esta app ao <strong>Supabase (PostgreSQL)</strong>. É grátis e o código está preparado para essa transição.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ABA DE FICHAS */}
       {activeTab === 'worksheets' && (
