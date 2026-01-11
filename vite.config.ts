@@ -11,14 +11,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor': ['react', 'react-dom', 'lucide-react', '@supabase/supabase-js']
-        }
-      }
-    }
+    minify: 'esbuild'
   },
   server: {
     port: 3000
