@@ -1,7 +1,0 @@
-{
-  "name": "Estrelas do Conhecimento",
-  "description": "Uma app educativa para a Helena consolidar conhecimentos da 2ª classe.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}
