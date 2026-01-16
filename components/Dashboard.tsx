@@ -1,7 +1,7 @@
 import React from 'react';
 import { Subject, UserStats, Prize } from '../types';
 import { SUBJECT_CONFIG } from '../constants';
-import { Wallet, Sparkles, Star, ShoppingBag, Settings } from 'lucide-react';
+import { Wallet, Sparkles, Star, Gift, Settings } from 'lucide-react';
 
 interface DashboardProps {
   stats: UserStats;
@@ -41,7 +41,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, o
             onClick={onOpenShop} 
             className="bg-purple-500 hover:bg-purple-600 text-white px-8 py-4 rounded-3xl font-black text-xl shadow-xl transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-2"
           >
-            <ShoppingBag className="w-6 h-6" /> Loja
+            <Gift className="w-6 h-6" /> Baú
           </button>
         </div>
       </header>
@@ -66,7 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, o
             </div>
             <div className="w-full md:w-64">
               <div className="flex justify-between text-xs font-black mb-2 uppercase tracking-widest">
-                <span>Meta de Estrelas</span>
+                <span>Meta para o Baú</span>
                 <span>{Math.round(progress)}%</span>
               </div>
               <div className="w-full h-5 bg-black/10 rounded-full overflow-hidden p-1">
@@ -110,7 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, o
                   <h3 className="text-3xl font-black text-white leading-tight">{subject}</h3>
                 </div>
                 <div className="relative z-10 flex items-center gap-2 text-white/80 font-bold text-sm">
-                  <span>Começar Desafio</span>
+                  <span>Abrir Missão</span>
                   <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
                     →
                   </div>

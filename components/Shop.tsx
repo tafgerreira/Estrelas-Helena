@@ -1,6 +1,6 @@
 import React from 'react';
 import { Prize } from '../types';
-import { Lock, Unlock, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { Lock, Unlock, Gift, ArrowLeft } from 'lucide-react';
 
 interface ShopProps {
   credits: number;
@@ -17,12 +17,12 @@ const Shop: React.FC<ShopProps> = ({ credits, prizes, onBuy, onClose }) => {
           <ArrowLeft /> Voltar
         </button>
         <div className="bg-yellow-400 text-white px-6 py-2 rounded-full font-bold shadow-md flex items-center gap-2">
-          <ShoppingBag className="w-5 h-5" />
+          <Gift className="w-5 h-5" />
           Teu Saldo: {credits.toFixed(2)}€
         </div>
       </div>
 
-      <h1 className="text-4xl font-bold text-gray-800 mb-8 text-center">A Tua Loja de Prémios 🎁</h1>
+      <h1 className="text-4xl font-bold text-gray-800 mb-8 text-center">O Teu Baú de Prémios 🎁</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {prizes.map((prize) => {
@@ -60,7 +60,7 @@ const Shop: React.FC<ShopProps> = ({ credits, prizes, onBuy, onClose }) => {
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-black text-yellow-600">{prize.cost.toFixed(2)}€</span>
                   {isUnlocked ? (
-                    <span className="text-green-600 font-bold">ADQUIRIDO!</span>
+                    <span className="text-green-600 font-bold">CONQUISTADO!</span>
                   ) : (
                     <button
                       disabled={!canAfford}
@@ -71,7 +71,7 @@ const Shop: React.FC<ShopProps> = ({ credits, prizes, onBuy, onClose }) => {
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      Comprar
+                      Abrir
                     </button>
                   )}
                 </div>

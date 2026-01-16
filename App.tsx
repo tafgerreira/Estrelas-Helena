@@ -25,7 +25,6 @@ const App: React.FC = () => {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'online' | 'error'>('offline');
 
-  // Senha de acesso atualizada
   const ADMIN_PASSWORD = '167356';
   
   const initialSubjectStats: Record<Subject, SubjectMetrics> = {
@@ -155,7 +154,8 @@ const App: React.FC = () => {
 
       let updatedRecentIds = [...prev.recentWorksheetIds];
       if (sessionProgress?.worksheetId) {
-        updatedRecentIds = [sessionProgress.worksheetId, ...updatedRecentIds].filter((v, i, a) => a.indexOf(v) === i).slice(0, 2);
+        // Bloquear a ficha que acabou de ser feita
+        updatedRecentIds = [sessionProgress.worksheetId, ...updatedRecentIds].slice(0, 2);
       }
 
       return {
@@ -174,6 +174,11 @@ const App: React.FC = () => {
     setSessionProgress(null);
     setView('dashboard');
   };
+
+  // Se a categoria for ALL (Tudo), mostra todas as fichas. Caso contrário, filtra pelo assunto.
+  const filteredWorksheets = selectedSubject === Subject.ALL 
+    ? worksheets 
+    : worksheets.filter(w => w.subject === selectedSubject);
 
   return (
     <div className="min-h-screen bg-[#f0f9ff] pb-12">
@@ -247,7 +252,7 @@ const App: React.FC = () => {
       {view === 'admin' && (
         <WorksheetUploader 
           subject={selectedSubject || Subject.PORTUGUESE}
-          savedWorksheets={worksheets.filter(w => w.subject === selectedSubject)}
+          savedWorksheets={filteredWorksheets}
           recentWorksheetIds={stats.recentWorksheetIds}
           onQuestionsGenerated={(qs, imgs, id) => {
             setCurrentQuestions(qs);
