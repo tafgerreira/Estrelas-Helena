@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Question, Subject } from '../types';
-import { Star, ArrowRight, Loader2, PartyPopper, RefreshCcw } from 'lucide-react';
+import { Star, ArrowRight, Loader2, PartyPopper, RefreshCcw, Wallet } from 'lucide-react';
 
 interface ExerciseRoomProps {
   questions: Question[];
@@ -9,6 +9,7 @@ interface ExerciseRoomProps {
   initialIndex: number;
   initialCorrectCount: number;
   initialTotalCredits: number;
+  globalCredits: number;
   onProgressUpdate: (progress: any) => void;
   onComplete: (correct: number, credits: number, total: number) => void;
   onExit: () => void;
@@ -22,7 +23,7 @@ interface WordItem {
 
 const ExerciseRoom: React.FC<ExerciseRoomProps> = ({ 
   questions: propQuestions, subject, initialIndex, 
-  initialCorrectCount, initialTotalCredits, onComplete, onExit 
+  initialCorrectCount, initialTotalCredits, globalCredits, onComplete, onExit 
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -127,12 +128,22 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
         
         {/* Progresso Topo */}
         <div className="flex justify-between items-center mb-6 sm:mb-8">
-          <span className="bg-blue-100 text-blue-600 px-4 sm:px-6 py-2 rounded-full font-black text-[10px] sm:text-xs uppercase tracking-widest border-2 border-blue-200">
-            {subject} • {currentIndex + 1} / {propQuestions.length}
-          </span>
-          <div className="flex items-center gap-2 bg-yellow-400 text-white px-4 py-2 rounded-full shadow-lg border-2 border-yellow-300">
-            <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-            <span className="font-black text-lg sm:text-xl">{totalCredits.toFixed(2)}€</span>
+          <div className="flex flex-col gap-1">
+            <span className="bg-blue-100 text-blue-600 px-4 sm:px-6 py-1 rounded-full font-black text-[10px] sm:text-xs uppercase tracking-widest border-2 border-blue-200 w-fit">
+              {subject} • {currentIndex + 1} / {propQuestions.length}
+            </span>
+            <div className="flex items-center gap-2 px-3 py-1 bg-yellow-50 text-yellow-600 rounded-full border border-yellow-200 w-fit">
+              <Wallet size={12} />
+              <span className="text-[10px] font-black uppercase tracking-tighter">Mealheiro: {globalCredits.toFixed(2)}€</span>
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2 bg-yellow-400 text-white px-4 py-2 rounded-full shadow-lg border-2 border-yellow-300">
+              <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+              <span className="font-black text-lg sm:text-xl">{totalCredits.toFixed(2)}€</span>
+            </div>
+            <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest mr-2">Ganhos de Agora</span>
           </div>
         </div>
 
@@ -189,7 +200,7 @@ const ExerciseRoom: React.FC<ExerciseRoomProps> = ({
             </div>
           )}
 
-          {/* Ordenação de Frase (Sem Drag & Drop, Apenas Clique - Muito mais estável) */}
+          {/* Ordenação de Frase */}
           {currentQuestion.type === 'word-ordering' && (
             <div className="space-y-6">
               {/* Área onde a frase é montada */}

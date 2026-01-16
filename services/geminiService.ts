@@ -6,56 +6,43 @@ export const generateQuestionsFromImages = async (
   subject: Subject
 ): Promise<Question[]> => {
   const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    console.error("API_KEY não encontrada no ambiente. Verifique as configurações do Vercel.");
-    return [];
-  }
+  if (!apiKey) return [];
 
+  // Initialize Gemini client with process.env.API_KEY
   const ai = new GoogleGenAI({ apiKey });
-  const model = 'gemini-3-flash-preview';
+  // Use gemini-3-pro-preview for complex reasoning tasks like analyzing worksheets and generating new questions
+  const model = 'gemini-3-pro-preview';
 
-  const systemPrompt = `
-    És um professor experiente do 1º ciclo (2º ano) em Portugal.
-    Analisa as imagens da ficha de ${subject} fornecidas.
-    Gera 5 novos exercícios lúdicos e educativos similares aos que estão na ficha, adequados para uma criança de 7 anos.
+  const isMixed = subject === Subject.ALL;
+
+  const systemPrompt = `És um professor do 2º ano em Portugal. 
+    Analisa as imagens e gera 5 exercícios educativos em formato JSON.
     
-    Regras por disciplina:
-    - Português: Foca em gramática (nomes próprios/comuns, verbos no presente, adjetivos), ortografia e interpretação simples.
-    - Matemática: Adição/Subtração até 100, problemas do dia-a-dia e figuras geométricas.
-    - Estudo do Meio: Natureza, corpo humano, sentidos, família e comunidade.
-    - Inglês: Cores, números até 20, animais e saudações.
+    ESTRITAMENTE OBRIGATÓRIO:
+    ${isMixed 
+      ? "Gera uma mistura equilibrada de Português, Matemática, Estudo do Meio e Inglês." 
+      : `Gera exercícios EXCLUSIVAMENTE de ${subject}. É proibido incluir perguntas de outras disciplinas.`}
     
-    Importante: A complexidade (complexity) deve ser de 1 a 5.
-    - 1: Muito fácil (0.50€)
-    - 3: Médio (1.50€)
-    - 5: Desafio difícil (2.50€)
+    Instruções por área:
+    - Português: Gramática, ortografia ou interpretação de texto.
+    - Matemática: Cálculo até 100 ou geometria básica.
+    - Estudo do Meio: Natureza, corpo humano ou sociedade.
+    - Inglês: Vocabulário básico (cores, animais, números).
 
-    Retorna APENAS um JSON válido.
-  `;
+    Regras de Formato para 'word-ordering':
+    - Se usares 'word-ordering', o campo 'options' DEVE conter as palavras da frase correta de forma baralhada.
+    - O campo 'correctAnswer' deve ser a frase completa e correta.
 
-  const responseSchema = {
-    type: Type.OBJECT,
-    properties: {
-      questions: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            id: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ['multiple-choice', 'text', 'word-ordering'] },
-            question: { type: Type.STRING },
-            translation: { type: Type.STRING },
-            options: { type: Type.ARRAY, items: { type: Type.STRING } },
-            correctAnswer: { type: Type.STRING },
-            explanation: { type: Type.STRING },
-            complexity: { type: Type.INTEGER, minimum: 1, maximum: 5 }
-          },
-          required: ['id', 'type', 'question', 'correctAnswer', 'complexity', 'explanation']
-        }
-      }
-    }
-  };
+    Estrutura JSON esperada: campo 'questions' contendo lista de objetos com:
+    - id (string única)
+    - type ('multiple-choice', 'text', 'word-ordering')
+    - question (pergunta clara)
+    - options (array de strings: para multiple-choice são as escolhas; para word-ordering são as palavras baralhadas)
+    - correctAnswer (string exata)
+    - complexity (1 a 5)
+    - explanation (uma frase explicativa pedagógica)
+    
+    Retorna apenas o JSON.`;
 
   const imageParts = base64Images.map(img => ({
     inlineData: {
@@ -65,31 +52,47 @@ export const generateQuestionsFromImages = async (
   }));
 
   try {
+    // Call generateContent with model and prompt content
     const response = await ai.models.generateContent({
-      model: model,
+      model,
       contents: {
-        parts: [
-          ...imageParts,
-          { text: "Analisa esta ficha e cria 5 exercícios divertidos." }
-        ]
+        parts: [...imageParts, { text: `Gera 5 exercícios de nível 2º ano primário focados em: ${subject}` }]
       },
       config: {
         systemInstruction: systemPrompt,
         responseMimeType: "application/json",
-        responseSchema: responseSchema
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            questions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  type: { type: Type.STRING },
+                  question: { type: Type.STRING },
+                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  correctAnswer: { type: Type.STRING },
+                  explanation: { type: Type.STRING },
+                  complexity: { type: Type.INTEGER }
+                },
+                required: ['type', 'question', 'correctAnswer', 'complexity']
+              }
+            }
+          }
+        }
       }
     });
 
-    const text = response.text;
-    if (!text) return [];
-    
-    const result = JSON.parse(text);
+    // Extract text directly from response.text property
+    const result = JSON.parse(response.text || '{"questions": []}');
     return (result.questions || []).map((q: any) => ({
       ...q,
       id: q.id || Math.random().toString(36).substr(2, 9)
     }));
   } catch (error) {
-    console.error("Erro Gemini:", error);
+    console.error("Gemini Error:", error);
     return [];
   }
 };

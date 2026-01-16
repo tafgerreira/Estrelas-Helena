@@ -1,9 +1,9 @@
-
 export enum Subject {
   PORTUGUESE = 'Português',
   MATH = 'Matemática',
-  NSS = 'Estudo do Meio',
-  ENGLISH = 'Inglês'
+  NSS = 'Estudo do Meio (NSS)',
+  ENGLISH = 'Inglês',
+  ALL = 'Tudo'
 }
 
 export interface SubjectMetrics {
@@ -19,7 +19,7 @@ export interface Question {
   options?: string[];
   correctAnswer: string;
   explanation: string;
-  complexity: number; // 1 (0.50€) a 5 (2.50€)
+  complexity: number;
   translation?: string;
 }
 

@@ -4,14 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Estrelas do Conhecimento</title>
-    
-    <!-- Configurações para iPad/iPhone (PWA) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Estrelas">
-    
-    <link rel="apple-touch-icon" href="https://api.dicebear.com/7.x/icons/svg?seed=stars">
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -27,11 +21,8 @@
         .animate-in { animation-duration: 500ms; animation-fill-mode: both; }
         .fade-in { animation-name: fadeIn; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-
-        /* Mensagem visual enquanto a app carrega */
         #root:empty::before {
-            content: "A preparar as estrelas...";
+            content: "A carregar as estrelas...";
             display: flex;
             align-items: center;
             justify-content: center;
@@ -41,16 +32,7 @@
             font-size: 1.5rem;
             animation: pulse 1.5s infinite;
         }
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-        
-        /* Ajuste para botões em dispositivos móveis */
-        button, input {
-            -webkit-tap-highlight-color: transparent;
-        }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
     </style>
 <script type="importmap">
 {
@@ -60,15 +42,17 @@
     "react/": "https://esm.sh/react@^19.2.3/",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>

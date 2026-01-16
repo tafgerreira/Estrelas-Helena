@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { BookOpen, Calculator, Globe, GraduationCap } from 'lucide-react';
+import { BookOpen, Calculator, Globe, GraduationCap, Sparkles } from 'lucide-react';
 import { Subject } from './types';
 
 export const SUBJECT_CONFIG = {
@@ -23,6 +22,11 @@ export const SUBJECT_CONFIG = {
     color: 'bg-purple-400',
     icon: <GraduationCap className="w-10 h-10 text-white" />,
     gradient: 'from-purple-400 to-purple-600'
+  },
+  [Subject.ALL]: {
+    color: 'bg-amber-400',
+    icon: <Sparkles className="w-10 h-10 text-white" />,
+    gradient: 'from-indigo-500 via-purple-500 to-pink-500'
   }
 };
 

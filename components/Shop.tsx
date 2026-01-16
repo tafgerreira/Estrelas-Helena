@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Prize } from '../types';
 import { Lock, Unlock, ShoppingBag, ArrowLeft } from 'lucide-react';
@@ -76,19 +75,6 @@ const Shop: React.FC<ShopProps> = ({ credits, prizes, onBuy, onClose }) => {
                     </button>
                   )}
                 </div>
-                {!isUnlocked && !canAfford && (
-                  <div className="mt-4">
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-yellow-400"
-                        style={{ width: `${(credits / prize.cost) * 100}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-[10px] text-gray-400 font-bold mt-1 text-right">
-                      Faltam {(prize.cost - credits).toFixed(2)}€
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           );

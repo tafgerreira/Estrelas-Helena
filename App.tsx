@@ -25,13 +25,15 @@ const App: React.FC = () => {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'online' | 'error'>('offline');
 
-  const ADMIN_PASSWORD = '1234';
+  // Senha de acesso atualizada
+  const ADMIN_PASSWORD = '167356';
   
   const initialSubjectStats: Record<Subject, SubjectMetrics> = {
     [Subject.PORTUGUESE]: { totalMinutes: 0, correctAnswers: 0, totalQuestions: 0 },
     [Subject.MATH]: { totalMinutes: 0, correctAnswers: 0, totalQuestions: 0 },
     [Subject.NSS]: { totalMinutes: 0, correctAnswers: 0, totalQuestions: 0 },
     [Subject.ENGLISH]: { totalMinutes: 0, correctAnswers: 0, totalQuestions: 0 },
+    [Subject.ALL]: { totalMinutes: 0, correctAnswers: 0, totalQuestions: 0 },
   };
 
   const defaultStats: UserStats = {
@@ -90,10 +92,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     initData();
-    const savedSession = localStorage.getItem('estudos_session_progress');
-    if (savedSession) setSessionProgress(JSON.parse(savedSession));
-    const savedQs = localStorage.getItem('estudos_current_questions');
-    if (savedQs) setCurrentQuestions(JSON.parse(savedQs));
   }, []);
 
   useEffect(() => {
@@ -157,7 +155,7 @@ const App: React.FC = () => {
 
       let updatedRecentIds = [...prev.recentWorksheetIds];
       if (sessionProgress?.worksheetId) {
-        updatedRecentIds = [sessionProgress.worksheetId, ...updatedRecentIds].slice(0, 2);
+        updatedRecentIds = [sessionProgress.worksheetId, ...updatedRecentIds].filter((v, i, a) => a.indexOf(v) === i).slice(0, 2);
       }
 
       return {
@@ -165,7 +163,7 @@ const App: React.FC = () => {
         credits: prev.credits + finalEarnedCredits,
         totalQuestions: newTotalQuestions,
         correctAnswers: newCorrectAnswers,
-        accuracy: Math.round((newCorrectAnswers / newTotalQuestions) * 100),
+        accuracy: newTotalQuestions > 0 ? Math.round((newCorrectAnswers / newTotalQuestions) * 100) : 0,
         dailyMinutes: prev.dailyMinutes + sessionMinutes,
         subjectStats: updatedSubjectStats,
         recentWorksheetIds: updatedRecentIds
@@ -229,9 +227,9 @@ const App: React.FC = () => {
           initialIndex={sessionProgress?.currentIndex || 0}
           initialCorrectCount={sessionProgress?.correctCount || 0}
           initialTotalCredits={sessionProgress?.totalCredits || 0}
+          globalCredits={stats.credits}
           onProgressUpdate={(p) => {
             setSessionProgress({ ...p, worksheetId: sessionProgress?.worksheetId });
-            setCurrentQuestions(p.questions);
           }}
           onComplete={handleExerciseComplete}
           onExit={() => setView('dashboard')}
@@ -270,6 +268,7 @@ const App: React.FC = () => {
           credits={stats.credits}
           cloudStatus={cloudStatus}
           onUpdateDoubleCreditDays={(d) => setStats(prev => ({...prev, doubleCreditDays: d}))} 
+          onUpdateCredits={(c) => setStats(prev => ({...prev, credits: c}))}
           onUpdatePrizes={setPrizes} 
           onUpdateWorksheets={setWorksheets} 
           onImportData={handleImportAllData}
@@ -301,10 +300,10 @@ const App: React.FC = () => {
                 autoFocus 
                 value={passwordInput} 
                 onChange={(e) => setPasswordInput(e.target.value)} 
-                className={`w-full p-4 border-2 rounded-xl mb-4 text-center text-2xl font-bold tracking-widest ${passwordError ? 'border-red-500 bg-red-50' : 'border-gray-100 focus:border-blue-500'}`} 
-                placeholder="****" 
+                className={`w-full p-4 border-2 rounded-xl mb-4 text-center text-2xl font-bold tracking-widest ${passwordError ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-blue-500'}`} 
+                placeholder="******" 
               />
-              {passwordError && <p className="text-red-500 text-xs font-bold text-center mb-4">Código incorreto! Tente 1234.</p>}
+              {passwordError && <p className="text-red-500 text-xs font-bold text-center mb-4">Código incorreto! Verifique a sua senha.</p>}
               <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg transition-all">
                 Entrar no Painel
               </button>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Subject, UserStats, Prize } from '../types';
 import { SUBJECT_CONFIG } from '../constants';
@@ -26,7 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, o
           </div>
           <div>
             <h1 className="text-3xl font-black text-gray-800 tracking-tight">Olá, Helena! 🌟</h1>
-            <p className="text-gray-500 font-bold">Pronta para ganhar prémios hoje?</p>
+            <p className="text-gray-500 font-bold">Pronta para a tua próxima missão?</p>
           </div>
         </div>
         
@@ -80,15 +79,13 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, o
               </div>
             </div>
           </div>
-          {/* Decoração de fundo */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl transition-transform group-hover:scale-150"></div>
         </div>
       )}
 
       {/* Seleção de Disciplinas */}
       <section>
         <div className="flex justify-between items-end mb-8">
-          <h2 className="text-3xl font-black text-gray-800">O que vamos estudar?</h2>
+          <h2 className="text-3xl font-black text-gray-800">Escolhe o teu próximo desafio! 🚀</h2>
           <button 
             onClick={onOpenAdmin} 
             className="text-gray-400 hover:text-blue-500 text-xs font-bold flex items-center gap-1 p-2 rounded-lg hover:bg-white transition-colors"
@@ -98,8 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, o
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {(Object.keys(Subject) as Array<keyof typeof Subject>).map((key) => {
-            const subject = Subject[key];
+          {(Object.values(Subject) as Subject[]).map((subject) => {
             const config = SUBJECT_CONFIG[subject];
             return (
               <button
@@ -114,13 +110,11 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, o
                   <h3 className="text-3xl font-black text-white leading-tight">{subject}</h3>
                 </div>
                 <div className="relative z-10 flex items-center gap-2 text-white/80 font-bold text-sm">
-                  <span>Abrir Fichas</span>
+                  <span>Começar Desafio</span>
                   <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
                     →
                   </div>
                 </div>
-                {/* Elementos decorativos */}
-                <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform"></div>
               </button>
             );
           })}

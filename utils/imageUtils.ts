@@ -1,5 +1,4 @@
-
-export const resizeImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200): Promise<string> => {
+export const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = base64Str;
@@ -29,8 +28,8 @@ export const resizeImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200
       }
 
       ctx.drawImage(img, 0, 0, width, height);
-      // Comprime para JPEG com 70% de qualidade para poupar imenso espaço no localStorage
-      resolve(canvas.toDataURL('image/jpeg', 0.7));
+      // Qualidade 0.5 para garantir que as fichas ocupam o mínimo de espaço possível no localStorage
+      resolve(canvas.toDataURL('image/jpeg', 0.5));
     };
     img.onerror = (e) => reject(e);
   });
@@ -38,15 +37,21 @@ export const resizeImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200
 
 export const getStorageUsage = () => {
   let total = 0;
-  for (const key in localStorage) {
-    if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
-      total += (localStorage[key]?.length || 0) * 2; // UTF-16 usa 2 bytes por caractere
+  try {
+    for (const key in localStorage) {
+      if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+        total += (localStorage[key]?.length || 0) * 2; // UTF-16 usa 2 bytes por char
+      }
     }
+  } catch (e) {
+    console.error("Erro ao calcular uso de memória", e);
   }
+  
   const sizeMB = total / (1024 * 1024);
-  const limitMB = 5; // Limite padrão aproximado do localStorage
+  const limitMB = 5; // Limite padrão do localStorage na maioria dos browsers
   return {
     usedMB: sizeMB.toFixed(2),
-    percentage: Math.min(Math.round((sizeMB / limitMB) * 100), 100)
+    percentage: Math.min(Math.round((sizeMB / limitMB) * 100), 100),
+    isFull: sizeMB > 4.5
   };
 };

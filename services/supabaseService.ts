@@ -1,21 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-// No Vite, as variáveis definidas em 'define' no vite.config.ts ficam disponíveis em process.env
-// Tentamos ler de process.env (injetado pelo define) ou de import.meta.env (padrão Vite)
-const supabaseUrl = process.env.VITE_SUPABASE_URL || (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+// Tenta obter de process.env (Node/Webpack/Vite define) ou import.meta.env (Vite nativo)
+const getEnv = (name: string): string => {
+  try {
+    return process.env[name] || (import.meta as any).env?.[name] || '';
+  } catch {
+    return (import.meta as any).env?.[name] || '';
+  }
+};
+
+const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http'));
 
 export const supabase = isSupabaseConfigured 
   ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
-
-if (isSupabaseConfigured) {
-  console.log("✅ Supabase pronto para ligar à Cloud.");
-} else {
-  console.warn("⚠️ Variáveis do Supabase não detetadas ou inválidas.");
-}
 
 export const saveToCloud = async (data: { stats: any, prizes: any, worksheets: any }) => {
   if (!supabase) return;
@@ -32,7 +33,7 @@ export const saveToCloud = async (data: { stats: any, prizes: any, worksheets: a
 
     if (error) throw error;
   } catch (err) {
-    console.error("❌ Erro ao guardar na cloud:", err);
+    console.error("Cloud save error:", err);
     throw err;
   }
 };
@@ -49,7 +50,7 @@ export const loadFromCloud = async () => {
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error("❌ Erro ao carregar da cloud:", err);
+    console.error("Cloud load error:", err);
     return null;
   }
 };
