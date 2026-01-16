@@ -28,7 +28,7 @@ export const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800):
       }
 
       ctx.drawImage(img, 0, 0, width, height);
-      // Qualidade 0.5 para garantir que as fichas ocupam o mínimo de espaço possível no localStorage
+      // Qualidade 0.5 para garantir que as fichas ocupam o mínimo de espaço possível
       resolve(canvas.toDataURL('image/jpeg', 0.5));
     };
     img.onerror = (e) => reject(e);
@@ -49,9 +49,12 @@ export const getStorageUsage = () => {
   
   const sizeMB = total / (1024 * 1024);
   const limitMB = 5; // Limite padrão do localStorage na maioria dos browsers
+  const percentage = Math.min(Math.round((sizeMB / limitMB) * 100), 100);
+  
   return {
     usedMB: sizeMB.toFixed(2),
-    percentage: Math.min(Math.round((sizeMB / limitMB) * 100), 100),
-    isFull: sizeMB > 4.5
+    percentage,
+    isCritical: percentage > 90,
+    isFull: percentage >= 100
   };
 };

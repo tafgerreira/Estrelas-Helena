@@ -22,7 +22,6 @@ const App: React.FC = () => {
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
-  const [storageError, setStorageError] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'online' | 'error'>('offline');
 
   const ADMIN_PASSWORD = '167356';
@@ -55,9 +54,12 @@ const App: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
   const initData = async () => {
+    // 1. Tentar carregar localmente primeiro para velocidade
+    loadFromLocalStorage();
+
+    // 2. Tentar carregar da Nuvem para garantir integridade
     if (!isSupabaseConfigured) {
       setCloudStatus('offline');
-      loadFromLocalStorage();
       return;
     }
 
@@ -65,28 +67,31 @@ const App: React.FC = () => {
     try {
       const cloudData = await loadFromCloud();
       if (cloudData) {
+        // Conciliação de dados: Prioridade à Nuvem se os dados forem diferentes
         setStats(cloudData.stats || defaultStats);
         setPrizes(cloudData.prizes || INITIAL_PRIZES);
         setWorksheets(cloudData.worksheets || []);
         setCloudStatus('online');
       } else {
-        setCloudStatus('error');
-        loadFromLocalStorage();
+        setCloudStatus('offline');
       }
     } catch (e) {
       setCloudStatus('error');
-      loadFromLocalStorage();
     }
   };
 
   const loadFromLocalStorage = () => {
-    const savedStats = localStorage.getItem('estudos_stats');
-    const savedPrizes = localStorage.getItem('estudos_prizes');
-    const savedWorksheets = localStorage.getItem('estudos_worksheets');
-    
-    if (savedStats) setStats(JSON.parse(savedStats));
-    if (savedPrizes) setPrizes(JSON.parse(savedPrizes));
-    if (savedWorksheets) setWorksheets(JSON.parse(savedWorksheets));
+    try {
+      const savedStats = localStorage.getItem('estudos_stats');
+      const savedPrizes = localStorage.getItem('estudos_prizes');
+      const savedWorksheets = localStorage.getItem('estudos_worksheets');
+      
+      if (savedStats) setStats(JSON.parse(savedStats));
+      if (savedPrizes) setPrizes(JSON.parse(savedPrizes));
+      if (savedWorksheets) setWorksheets(JSON.parse(savedWorksheets));
+    } catch (e) {
+      console.warn("Erro ao ler localStorage:", e);
+    }
   };
 
   useEffect(() => {
@@ -95,10 +100,16 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const sync = async () => {
-      localStorage.setItem('estudos_stats', JSON.stringify(stats));
-      localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
-      localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
+      // Tentar gravar localmente (com proteção contra falta de espaço)
+      try {
+        localStorage.setItem('estudos_stats', JSON.stringify(stats));
+        localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
+        localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
+      } catch (e) {
+        console.error("LocalStorage está cheio! A confiar apenas na Nuvem.", e);
+      }
 
+      // Tentar gravar na Nuvem (sempre prioridade se configurado)
       if (!isSupabaseConfigured) return;
 
       setCloudStatus('syncing');
@@ -143,8 +154,8 @@ const App: React.FC = () => {
     const finalEarnedCredits = isDoubleDay ? earnedCredits * 2 : earnedCredits;
 
     setStats(prev => {
-      const newTotalQuestions = prev.totalQuestions + finalQuestionsCount;
-      const newCorrectAnswers = prev.correctAnswers + correct;
+      const newTotalQuestions = (prev.totalQuestions || 0) + finalQuestionsCount;
+      const newCorrectAnswers = (prev.correctAnswers || 0) + correct;
       const updatedSubjectStats = { ...prev.subjectStats };
       updatedSubjectStats[currentSub] = {
         totalMinutes: (updatedSubjectStats[currentSub]?.totalMinutes || 0) + sessionMinutes,
@@ -152,19 +163,18 @@ const App: React.FC = () => {
         correctAnswers: (updatedSubjectStats[currentSub]?.correctAnswers || 0) + correct,
       };
 
-      let updatedRecentIds = [...prev.recentWorksheetIds];
+      let updatedRecentIds = [...(prev.recentWorksheetIds || [])];
       if (sessionProgress?.worksheetId) {
-        // Bloquear a ficha que acabou de ser feita
         updatedRecentIds = [sessionProgress.worksheetId, ...updatedRecentIds].slice(0, 2);
       }
 
       return {
         ...prev,
-        credits: prev.credits + finalEarnedCredits,
+        credits: (prev.credits || 0) + finalEarnedCredits,
         totalQuestions: newTotalQuestions,
         correctAnswers: newCorrectAnswers,
         accuracy: newTotalQuestions > 0 ? Math.round((newCorrectAnswers / newTotalQuestions) * 100) : 0,
-        dailyMinutes: prev.dailyMinutes + sessionMinutes,
+        dailyMinutes: (prev.dailyMinutes || 0) + sessionMinutes,
         subjectStats: updatedSubjectStats,
         recentWorksheetIds: updatedRecentIds
       };
@@ -175,7 +185,6 @@ const App: React.FC = () => {
     setView('dashboard');
   };
 
-  // Se a categoria for ALL (Tudo), mostra todas as fichas. Caso contrário, filtra pelo assunto.
   const filteredWorksheets = selectedSubject === Subject.ALL 
     ? worksheets 
     : worksheets.filter(w => w.subject === selectedSubject);
@@ -185,8 +194,7 @@ const App: React.FC = () => {
       <div className="fixed bottom-4 right-4 z-50">
         <button 
           onClick={initData}
-          title={isSupabaseConfigured ? "Clique para re-sincronizar" : "Cloud não configurada"}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-xl backdrop-blur-md border-2 transition-all active:scale-95 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-xl backdrop-blur-md border-2 transition-all ${
           cloudStatus === 'online' ? 'bg-green-100 text-green-600 border-green-300' :
           cloudStatus === 'syncing' ? 'bg-blue-100 text-blue-600 border-blue-300 animate-pulse' :
           cloudStatus === 'error' ? 'bg-red-100 text-red-600 border-red-300' :
@@ -198,21 +206,13 @@ const App: React.FC = () => {
            <WifiOff className="w-4 h-4" />}
           
           <span className="hidden sm:inline">
-            {cloudStatus === 'online' ? 'Cloud Ligada' : 
-             cloudStatus === 'syncing' ? 'Sincronizando...' : 
-             cloudStatus === 'error' ? 'Erro de Ligação' :
-             'Modo Apenas Local'}
+            {cloudStatus === 'online' ? 'DADOS SEGUROS' : 
+             cloudStatus === 'syncing' ? 'A GRAVAR...' : 
+             cloudStatus === 'error' ? 'ERRO NUVEM' :
+             'MODO LOCAL'}
           </span>
         </button>
       </div>
-
-      {storageError && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
-          <AlertTriangle className="w-6 h-6" />
-          <p className="font-bold">{storageError}</p>
-          <button onClick={() => setStorageError(null)} className="p-1 hover:bg-white/20 rounded-full"><X className="w-5 h-5" /></button>
-        </div>
-      )}
 
       {view === 'dashboard' && (
         <Dashboard 
@@ -308,7 +308,7 @@ const App: React.FC = () => {
                 className={`w-full p-4 border-2 rounded-xl mb-4 text-center text-2xl font-bold tracking-widest ${passwordError ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-blue-500'}`} 
                 placeholder="******" 
               />
-              {passwordError && <p className="text-red-500 text-xs font-bold text-center mb-4">Código incorreto! Verifique a sua senha.</p>}
+              {passwordError && <p className="text-red-500 text-xs font-bold text-center mb-4">Código incorreto! Tente novamente.</p>}
               <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg transition-all">
                 Entrar no Painel
               </button>
