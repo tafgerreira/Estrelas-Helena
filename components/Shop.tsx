@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Prize } from '../types';
 import { Lock, Unlock, Gift, ArrowLeft } from 'lucide-react';
@@ -10,6 +11,9 @@ interface ShopProps {
 }
 
 const Shop: React.FC<ShopProps> = ({ credits, prizes, onBuy, onClose }) => {
+  // Ordenar os prémios por custo (ascendente) para facilitar a visualização do progresso
+  const sortedPrizes = [...prizes].sort((a, b) => a.cost - b.cost);
+
   return (
     <div className="max-w-4xl mx-auto p-4 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex justify-between items-center mb-8">
@@ -25,7 +29,7 @@ const Shop: React.FC<ShopProps> = ({ credits, prizes, onBuy, onClose }) => {
       <h1 className="text-4xl font-bold text-gray-800 mb-8 text-center">O Teu Baú de Prémios 🎁</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {prizes.map((prize) => {
+        {sortedPrizes.map((prize) => {
           const canAfford = credits >= prize.cost;
           const isUnlocked = prize.unlocked;
 
