@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Subject, UserStats, Question, Prize, Worksheet, WonPrize, SubjectMetrics, Avatar } from './types';
+import React, { useState, useEffect } from 'react';
+import { Subject, UserStats, Question, Prize, Worksheet, SubjectMetrics } from './types';
 import { INITIAL_PRIZES } from './constants';
 import Dashboard from './components/Dashboard';
 import ExerciseRoom from './components/ExerciseRoom';
@@ -8,8 +8,8 @@ import Shop from './components/Shop';
 import AvatarShop from './components/AvatarShop';
 import WorksheetUploader from './components/WorksheetUploader';
 import Backoffice from './components/Backoffice';
-import { Lock, X, AlertTriangle, Cloud, RefreshCw, WifiOff } from 'lucide-react';
-import { supabase, saveToCloud, loadFromCloud, isSupabaseConfigured } from './services/supabaseService';
+import { X, AlertTriangle, Cloud, RefreshCw, WifiOff } from 'lucide-react';
+import { saveToCloud, loadFromCloud, isSupabaseConfigured } from './services/supabaseService';
 
 interface SessionProgress {
   currentIndex: number;
@@ -58,25 +58,33 @@ const App: React.FC = () => {
   const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
+  // Inicialização: Prioridade Nuvem -> Fallback Local
   const initData = async () => {
-    loadFromLocalStorage();
-    if (!isSupabaseConfigured) {
-      setCloudStatus('offline');
-      return;
-    }
-
     setCloudStatus('syncing');
+    
     try {
-      const cloudData = await loadFromCloud();
+      const cloudData = isSupabaseConfigured ? await loadFromCloud() : null;
+      
       if (cloudData) {
-        setStats(prev => ({ ...defaultStats, ...cloudData.stats }));
+        console.log("Dados carregados da Nuvem (Prioridade)");
+        setStats({ ...defaultStats, ...cloudData.stats });
         setPrizes(cloudData.prizes || INITIAL_PRIZES);
         setWorksheets(cloudData.worksheets || []);
         setCloudStatus('online');
+        
+        // Limpar LocalStorage após sucesso da Nuvem para libertar espaço
+        localStorage.removeItem('estudos_worksheets'); 
+        localStorage.removeItem('estudos_prizes');
+        // Mantemos stats no local apenas como cache rápida de UI
+        localStorage.setItem('estudos_stats', JSON.stringify(cloudData.stats));
       } else {
-        setCloudStatus('offline');
+        console.log("Nuvem indisponível, a carregar do LocalStorage");
+        loadFromLocalStorage();
+        setCloudStatus(isSupabaseConfigured ? 'error' : 'offline');
       }
     } catch (e) {
+      console.error("Erro na inicialização:", e);
+      loadFromLocalStorage();
       setCloudStatus('error');
     }
   };
@@ -99,26 +107,40 @@ const App: React.FC = () => {
     initData();
   }, []);
 
+  // Sincronização Inteligente
   useEffect(() => {
     const sync = async () => {
-      try {
+      if (!isSupabaseConfigured) {
+        // Se não há nuvem, somos obrigados a usar o LocalStorage
         localStorage.setItem('estudos_stats', JSON.stringify(stats));
         localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
         localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
-      } catch (e) {
-        console.error("LocalStorage está cheio!");
+        return;
       }
 
-      if (!isSupabaseConfigured) return;
       setCloudStatus('syncing');
-      try {
-        await saveToCloud({ stats, prizes, worksheets });
+      const success = await saveToCloud({ stats, prizes, worksheets });
+
+      if (success) {
         setCloudStatus('online');
-      } catch (e) {
+        // LIMPEZA CRÍTICA: Se gravou na nuvem, removemos as imagens pesadas do telemóvel
+        localStorage.removeItem('estudos_worksheets');
+        localStorage.removeItem('estudos_prizes');
+        // Guardamos apenas o progresso numérico (leve) para o arranque ser instantâneo
+        localStorage.setItem('estudos_stats', JSON.stringify(stats));
+      } else {
         setCloudStatus('error');
+        // FALLBACK: Se falhou a nuvem, guardamos no local para não perder o trabalho
+        try {
+          localStorage.setItem('estudos_stats', JSON.stringify(stats));
+          localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
+        } catch (e) {
+          console.error("LocalStorage cheio e Nuvem falhou!");
+        }
       }
     };
-    const timeoutId = setTimeout(sync, 1500);
+
+    const timeoutId = setTimeout(sync, 2000); // Debounce de 2s para poupar bateria/dados
     return () => clearTimeout(timeoutId);
   }, [stats, prizes, worksheets]);
 
@@ -141,8 +163,6 @@ const App: React.FC = () => {
     const today = new Date().getDay();
     const isDoubleDay = stats.doubleCreditDays.includes(today);
     const finalEarnedCredits = isDoubleDay ? earnedCredits * 2 : earnedCredits;
-    
-    // Helena ganha 10 pontos por cada resposta correta para desbloquear avatares
     const earnedPoints = correct * 10;
 
     setStats(prev => {
@@ -193,7 +213,11 @@ const App: React.FC = () => {
            cloudStatus === 'syncing' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 
            cloudStatus === 'error' ? <AlertTriangle className="w-4 h-4" /> :
            <WifiOff className="w-4 h-4" />}
-          <span className="hidden sm:inline">{cloudStatus === 'online' ? 'DADOS SEGUROS' : cloudStatus === 'syncing' ? 'A GRAVAR...' : 'MODO LOCAL'}</span>
+          <span className="hidden sm:inline">
+            {cloudStatus === 'online' ? 'NUVEM ATIVA' : 
+             cloudStatus === 'syncing' ? 'A SINCRONIZAR...' : 
+             cloudStatus === 'error' ? 'ERRO DE LIGAÇÃO' : 'MODO LOCAL'}
+          </span>
         </button>
       </div>
 
@@ -239,7 +263,6 @@ const App: React.FC = () => {
             setView('dashboard');
           }}
           onUnlock={(avatar) => {
-            // Unlocks are based on accumulated points, not "spent"
             if (stats.points >= avatar.pointsRequired) {
               setStats(prev => ({ 
                 ...prev, 
