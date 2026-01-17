@@ -8,8 +8,6 @@ export const validateWorksheetImage = async (base64Image: string): Promise<{
   topic?: string;
   feedback: string;
 }> => {
-  if (!process.env.API_KEY) return { isValid: false, feedback: "API Key em falta" };
-  
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const dataOnly = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
 
@@ -24,16 +22,18 @@ export const validateWorksheetImage = async (base64Image: string): Promise<{
       },
       config: { 
         responseMimeType: "application/json",
-        temperature: 0.1 // Precisão máxima para validação
+        temperature: 0.1
       }
     });
 
     const text = response.text || '{}';
-    // Limpeza de possíveis markdown tags
     const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanJson);
-  } catch (e) {
-    return { isValid: false, feedback: "Erro técnico na análise da imagem." };
+  } catch (e: any) {
+    if (e.message?.includes("entity was not found")) {
+      return { isValid: false, feedback: "Acesso à API expirado. Por favor, reinicie." };
+    }
+    return { isValid: false, feedback: "O robô não conseguiu ler bem a foto. Tenta tirar com mais luz!" };
   }
 };
 
@@ -41,8 +41,6 @@ export const generateQuestionsFromImages = async (
   base64Images: string[], 
   subject: Subject
 ): Promise<Question[]> => {
-  if (!process.env.API_KEY) return getFallbackQuestions(subject);
-
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const responseSchema = {
@@ -67,7 +65,7 @@ export const generateQuestionsFromImages = async (
     required: ["questions"]
   };
 
-  const imageParts = base64Images.slice(0, 10).map(img => ({
+  const imageParts = base64Images.slice(0, 5).map(img => ({
     inlineData: { mimeType: "image/jpeg", data: img.includes(',') ? img.split(',')[1] : img }
   }));
 
@@ -80,25 +78,21 @@ export const generateQuestionsFromImages = async (
         parts: [
           ...imageParts,
           { text: `CONTEXTO: Aluna do 2º ano (7-8 anos) em Portugal. TEMA: ${subjectFocus}.
-          TAREFA: Analisa as imagens. Se conseguires ler os exercícios originais, adapta-os. 
-          SE AS IMAGENS ESTIVEREM DIFÍCEIS DE LER: Não desistas. Usa o tema visual ou palavras soltas que detetares para criar 5 exercícios NOVOS e ORIGINAIS adequados ao programa do 2º ano.
-          ESTILO: Divertido, carinhoso, pedagógico.
-          REGRAS: 
-          1. Para 'word-ordering', as 'options' devem conter as palavras individuais da frase e 'correctAnswer' a frase completa.
-          2. NUNCA respondas com lista vazia. Se falhares a leitura, inventa exercícios excelentes de ${subjectFocus}.` }
+          TAREFA: Analisa as imagens e cria 5 exercícios NOVOS e DIVERTIDOS.
+          ESTILO: Usa o nome da Helena às vezes. Sê muito carinhoso.
+          REGRAS: Para 'word-ordering', em 'options' coloca as palavras misturadas.` }
         ]
       },
       config: {
-        systemInstruction: "És um professor primário brilhante. Devolves sempre JSON estruturado conforme o esquema.",
+        systemInstruction: "És o melhor professor primário do mundo. Devolves sempre JSON.",
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.7 // Um pouco de criatividade ajuda a evitar falhas de leitura
+        temperature: 0.7
       }
     });
 
     const text = response.text || '{"questions": []}';
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const result = JSON.parse(cleanJson);
+    const result = JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
     
     if (!result.questions || result.questions.length === 0) {
       return getFallbackQuestions(subject);
@@ -110,7 +104,7 @@ export const generateQuestionsFromImages = async (
       complexity: q.complexity || 2
     }));
   } catch (error) {
-    console.error("Erro na geração de perguntas:", error);
+    console.error("Erro Gemini:", error);
     return getFallbackQuestions(subject);
   }
 };
@@ -118,15 +112,14 @@ export const generateQuestionsFromImages = async (
 const getFallbackQuestions = (subject: Subject): Question[] => {
   const themes: Record<string, any[]> = {
     [Subject.MATH]: [
-      { type: 'text', question: 'Quanto é 20 + 20 + 10?', correctAnswer: '50', explanation: '2 dezenas + 2 dezenas + 1 dezena dá 5 dezenas (50)!', complexity: 2 },
-      { type: 'multiple-choice', question: 'Qual é o dobro de 5?', options: ['10', '15', '20', '5'], correctAnswer: '10', explanation: 'O dobro é multiplicar por 2. 5 + 5 = 10.', complexity: 1 }
+      { type: 'text', question: 'Quanto é 20 + 30?', correctAnswer: '50', explanation: '2 dezenas + 3 dezenas = 5 dezenas!', complexity: 1 },
+      { type: 'multiple-choice', question: 'Qual o dobro de 10?', options: ['20', '30', '40'], correctAnswer: '20', explanation: 'Dobro é 10 + 10.', complexity: 1 }
     ],
     [Subject.PORTUGUESE]: [
-      { type: 'word-ordering', question: 'Ordena a frase:', options: ['gosta', 'A', 'Helena', 'brincar', 'de'], correctAnswer: 'A Helena gosta de brincar', explanation: 'A frase começa com o nome da Helena!', complexity: 2 },
-      { type: 'text', question: 'Como se escreve o plural de "Flor"?', correctAnswer: 'Flores', explanation: 'Palavras que terminam em -r, juntamos -es no plural.', complexity: 2 }
+      { type: 'text', question: 'Qual é o contrário de "Grande"?', correctAnswer: 'Pequeno', explanation: 'O oposto de algo muito grande é algo muito pequeno!', complexity: 1 }
     ],
     'default': [
-      { type: 'multiple-choice', question: 'Como devemos estar na sala de aula?', options: ['A gritar', 'Atentos e em silêncio', 'A dormir', 'A correr'], correctAnswer: 'Atentos e em silêncio', explanation: 'Estar atento ajuda-nos a aprender coisas fantásticas!', complexity: 1 }
+      { type: 'multiple-choice', question: 'Como se chama a nossa app?', options: ['Estrelas do Conhecimento', 'Escola Feliz', 'Robô Sabichão'], correctAnswer: 'Estrelas do Conhecimento', explanation: 'Exatamente!', complexity: 1 }
     ]
   };
   const selected = themes[subject] || themes['default'];
