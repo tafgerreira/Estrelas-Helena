@@ -48,7 +48,7 @@ const App: React.FC = () => {
     subjectStats: initialSubjectStats,
     recentWorksheetIds: [],
     doubleCreditDays: [0, 6],
-    selectedAvatarUrl: 'https://api.dicebear.com/9.x/big-smile/svg?seed=BlueyMonster&backgroundColor=b6e3f4',
+    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Felix&backgroundColor=b6e3f4',
     unlockedAvatarIds: ['av-1', 'av-2', 'av-3']
   };
 
@@ -59,46 +59,36 @@ const App: React.FC = () => {
   const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
-  // Inicialização: Prioridade absoluta à Nuvem
   const initData = async () => {
     setCloudStatus('syncing');
     
     try {
-      // 1. Tentar sempre a nuvem primeiro
+      // 1. Carregar local primeiro como segurança imediata
+      const localStats = localStorage.getItem('estudos_stats');
+      const localPrizes = localStorage.getItem('estudos_prizes');
+      const localWorksheets = localStorage.getItem('estudos_worksheets');
+
+      if (localStats) setStats(prev => ({ ...defaultStats, ...JSON.parse(localStats) }));
+      if (localPrizes) setPrizes(JSON.parse(localPrizes));
+      if (localWorksheets) setWorksheets(JSON.parse(localWorksheets));
+
+      // 2. Tentar Nuvem
       const cloudData = isSupabaseConfigured ? await loadFromCloud() : null;
       
-      if (cloudData && cloudData.stats) {
-        setStats({ ...defaultStats, ...cloudData.stats });
-        setPrizes(cloudData.prizes || INITIAL_PRIZES);
-        setWorksheets(cloudData.worksheets || []);
-        setCloudStatus('online');
+      if (cloudData) {
+        // Só sobrepomos o local se a nuvem tiver dados válidos e não vazios
+        if (cloudData.stats) setStats(prev => ({ ...prev, ...cloudData.stats }));
+        if (cloudData.prizes && cloudData.prizes.length > 0) setPrizes(cloudData.prizes);
+        if (cloudData.worksheets && cloudData.worksheets.length > 0) setWorksheets(cloudData.worksheets);
         
-        localStorage.removeItem('estudos_worksheets'); 
-        localStorage.removeItem('estudos_prizes');
-        localStorage.setItem('estudos_stats', JSON.stringify(cloudData.stats));
+        setCloudStatus('online');
       } else {
-        loadFromLocalStorage();
         setCloudStatus(isSupabaseConfigured ? 'error' : 'offline');
       }
     } catch (e) {
-      loadFromLocalStorage();
       setCloudStatus('error');
     } finally {
       setIsLoaded(true); 
-    }
-  };
-
-  const loadFromLocalStorage = () => {
-    try {
-      const savedStats = localStorage.getItem('estudos_stats');
-      const savedPrizes = localStorage.getItem('estudos_prizes');
-      const savedWorksheets = localStorage.getItem('estudos_worksheets');
-      
-      if (savedStats) setStats(prev => ({ ...defaultStats, ...JSON.parse(savedStats) }));
-      if (savedPrizes) setPrizes(JSON.parse(savedPrizes));
-      if (savedWorksheets) setWorksheets(JSON.parse(savedWorksheets));
-    } catch (e) {
-      console.warn("Erro ao ler LocalStorage:", e);
     }
   };
 
@@ -109,35 +99,22 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    const sync = async () => {
-      if (!isSupabaseConfigured) {
-        localStorage.setItem('estudos_stats', JSON.stringify(stats));
-        localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
-        localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
-        return;
-      }
+    // Guardar SEMPRE no LocalStorage como backup de segurança
+    localStorage.setItem('estudos_stats', JSON.stringify(stats));
+    localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
+    localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
 
-      setCloudStatus('syncing');
-      const success = await saveToCloud({ stats, prizes, worksheets });
+    // Sincronizar com Nuvem se configurado
+    if (isSupabaseConfigured) {
+      const sync = async () => {
+        setCloudStatus('syncing');
+        const success = await saveToCloud({ stats, prizes, worksheets });
+        setCloudStatus(success ? 'online' : 'error');
+      };
 
-      if (success) {
-        setCloudStatus('online');
-        localStorage.removeItem('estudos_worksheets');
-        localStorage.removeItem('estudos_prizes');
-        localStorage.setItem('estudos_stats', JSON.stringify(stats));
-      } else {
-        setCloudStatus('error');
-        try {
-          localStorage.setItem('estudos_stats', JSON.stringify(stats));
-          localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
-        } catch (e) {
-          console.error("Quota do telemóvel excedida!");
-        }
-      }
-    };
-
-    const timeoutId = setTimeout(sync, 1500); 
-    return () => clearTimeout(timeoutId);
+      const timeoutId = setTimeout(sync, 2000); 
+      return () => clearTimeout(timeoutId);
+    }
   }, [stats, prizes, worksheets, isLoaded]);
 
   const handleImportAllData = (encodedData: string) => {
