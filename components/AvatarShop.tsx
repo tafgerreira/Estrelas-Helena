@@ -45,9 +45,9 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
       </div>
 
       <div className="text-center mb-16 px-4">
-        <h1 className="text-5xl font-black text-gray-800 mb-4 tracking-tighter">Mundo dos Avatares 🌈</h1>
+        <h1 className="text-5xl font-black text-gray-800 mb-4 tracking-tighter">Mundo dos Monstros 👾</h1>
         <p className="text-xl text-gray-500 font-bold max-w-2xl mx-auto">
-          Desbloqueia novos amigos para o teu perfil! Temos <span className="text-blue-500">Formas</span>, <span className="text-pink-500">Monstros</span> e <span className="text-amber-500">Carinhas</span> fixes.
+          Escolhe a expressão que mais combina contigo hoje! Desbloqueia <span className="text-blue-500">30 caras de monstros</span> divertidas com as tuas estrelas.
         </p>
       </div>
 
