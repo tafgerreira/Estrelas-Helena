@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Subject, Question, Worksheet } from '../types';
-import { Loader2, AlertCircle, ArrowLeft, History, Sparkles, Brain, Wand2, Rocket, Zap, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, History, Sparkles, Brain, Wand2, Rocket, Zap, RefreshCw, Layers, Image as ImageIcon } from 'lucide-react';
 import { generateQuestionsFromImages } from '../services/geminiService';
 
 interface WorksheetUploaderProps {
@@ -14,11 +14,11 @@ interface WorksheetUploaderProps {
 
 const FUNNY_MESSAGES = [
   "A limpar as lentes do robô...",
-  "A decifrar os teus segredos...",
   "O robô está a ler muito depressa!",
   "A preparar desafios mágicos...",
   "Estás quase a começar, Helena!",
-  "A encontrar as estrelas escondidas..."
+  "A encontrar as estrelas escondidas...",
+  "A carregar super-poderes..."
 ];
 
 const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({ 
@@ -40,8 +40,8 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
     if (loading) {
       interval = window.setInterval(() => {
         setMessageIndex((prev) => (prev + 1) % FUNNY_MESSAGES.length);
-        setProcessingProgress(p => Math.min(p + 3, 98));
-      }, 2000);
+        setProcessingProgress(p => Math.min(p + 2, 98));
+      }, 2500);
     }
     return () => clearInterval(interval);
   }, [loading]);
@@ -49,18 +49,20 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
   const processWorksheet = async (worksheet: Worksheet) => {
     setLoading(true);
     setError(null);
-    setProcessingProgress(15);
+    setProcessingProgress(10);
     
     try {
+      // Passamos TODAS as imagens da ficha selecionada
       const questions = await generateQuestionsFromImages(worksheet.images, worksheet.subject);
       
       if (questions && questions.length > 0) {
         onQuestionsGenerated(questions, worksheet.images, worksheet.id);
       } else {
-        setError("O robô não conseguiu criar perguntas desta vez. Tenta outra foto!");
+        throw new Error("Não foi possível gerar perguntas para esta ficha.");
       }
-    } catch (err) {
-      setError("Houve um erro de ligação. Verifica a internet!");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "O robô baralhou-se. Tenta outra ficha ou tira uma foto mais clara!");
     } finally {
       setLoading(false);
     }
@@ -71,30 +73,35 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
     
     setLoading(true);
     setError(null);
-    setProcessingProgress(10);
+    setProcessingProgress(5);
 
-    // Seleciona 3 fichas aleatórias (ou todas se forem menos de 3)
-    const shuffled = [...savedWorksheets].sort(() => 0.5 - Math.random());
-    const selectedWorksheets = shuffled.slice(0, 3);
+    // 1. Selecionamos até 3 fichas aleatórias
+    const selectedWorksheets = [...savedWorksheets]
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3);
     
-    // RECOLHE TODAS AS IMAGENS de todas as fichas selecionadas
-    const allImages: string[] = [];
+    // 2. RECOLHA DE TODAS AS IMAGENS (Todas as páginas de cada ficha selecionada)
+    const combinedImages: string[] = [];
     selectedWorksheets.forEach(ws => {
-      allImages.push(...ws.images);
+      combinedImages.push(...ws.images);
     });
 
+    // 3. Limitamos a 10 imagens totais por questões de performance e limite da API
+    const finalBatch = combinedImages.slice(0, 10);
+
     try {
-      // Limitamos a 10 imagens totais para não sobrecarregar a API
-      const finalImages = allImages.slice(0, 10);
-      const questions = await generateQuestionsFromImages(finalImages, Subject.ALL);
+      setProcessingProgress(25);
+      // Pedimos ao Gemini para analisar o conjunto total de imagens
+      const questions = await generateQuestionsFromImages(finalBatch, Subject.ALL);
       
       if (questions && questions.length > 0) {
-        onQuestionsGenerated(questions, finalImages, 'super-' + Date.now());
+        onQuestionsGenerated(questions, finalBatch, 'super-' + Date.now());
       } else {
-        setError("Não conseguimos gerar o Super Desafio. Tenta de novo!");
+        throw new Error("O Super Desafio falhou ao criar perguntas.");
       }
-    } catch (err) {
-      setError("Erro ao ligar ao servidor de desafios.");
+    } catch (err: any) {
+      console.error(err);
+      setError("Houve um problema ao criar o Super Desafio. Tenta escolher fichas diferentes!");
     } finally {
       setLoading(false);
     }
@@ -104,6 +111,7 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
     <div className="max-w-3xl mx-auto p-4 animate-in fade-in zoom-in-95 duration-300">
       <div className="bg-white rounded-[40px] shadow-2xl p-8 border-t-8 border-blue-500 relative overflow-hidden">
         
+        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft className="text-gray-500" />
@@ -115,62 +123,75 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
           {isMixed && savedWorksheets.length > 0 && !loading && (
             <button 
               onClick={startSuperChallenge}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2 animate-pulse"
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
             >
-              <Zap size={20} fill="currentColor" /> COMEÇAR!
+              <Zap size={20} fill="currentColor" /> SUPER DESAFIO
             </button>
           )}
         </div>
 
         {!loading ? (
           <div className="space-y-6">
-            {error && (
-              <div className="p-6 bg-red-50 text-red-800 rounded-3xl border-4 border-red-100 animate-in shake">
-                <div className="flex items-start gap-4 mb-4">
-                   <AlertCircle className="text-red-600 shrink-0" size={32} />
-                   <div>
-                     <p className="font-black text-lg">Oops! O Robô baralhou-se.</p>
-                     <p className="text-sm font-bold opacity-80">{error}</p>
-                   </div>
-                </div>
-                <button onClick={() => setError(null)} className="w-full bg-red-500 text-white py-3 rounded-2xl font-black shadow-lg uppercase tracking-widest text-xs">Tentar Outra Vez</button>
+            {error ? (
+              <div className="p-8 bg-red-50 text-red-800 rounded-[35px] border-4 border-red-100 text-center space-y-4">
+                 <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                    <AlertCircle className="text-red-600" size={40} />
+                 </div>
+                 <h3 className="text-xl font-black">Oops! O Robô baralhou-se.</h3>
+                 <p className="text-sm font-bold opacity-70">{error}</p>
+                 <div className="flex flex-col gap-2 pt-4">
+                    <button 
+                      onClick={() => setError(null)} 
+                      className="bg-red-500 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-red-600 transition-all uppercase tracking-widest text-xs"
+                    >
+                      Tentar Outra Vez
+                    </button>
+                    <button 
+                      onClick={onClose}
+                      className="text-gray-400 font-bold text-xs p-2"
+                    >
+                      Voltar e escolher outra categoria
+                    </button>
+                 </div>
               </div>
-            )}
-
-            {!error && (
+            ) : (
               <>
-                <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                  <History className="w-5 h-5 text-green-500" /> Escolhe a tua ficha:
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-blue-500" /> Escolhe uma ficha:
+                  </h3>
+                </div>
                 
-                <div className="grid grid-cols-1 gap-4 max-h-[450px] overflow-y-auto pr-2 scrollbar-hide">
+                <div className="grid grid-cols-1 gap-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
                   {savedWorksheets.length > 0 ? (
                     savedWorksheets.map(w => {
                       const isRecent = recentWorksheetIds?.includes(w.id);
                       return (
                         <button
                           key={w.id}
-                          disabled={loading || isRecent}
+                          disabled={loading}
                           onClick={() => processWorksheet(w)}
-                          className={`w-full p-4 rounded-3xl border-2 transition-all flex items-center gap-4 text-left group relative ${
+                          className={`w-full p-4 rounded-[30px] border-2 transition-all flex items-center gap-4 text-left group relative ${
                             isRecent 
-                              ? 'bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed' 
-                              : 'bg-white border-gray-100 hover:border-blue-300 hover:shadow-lg active:scale-95'
+                              ? 'bg-blue-50/30 border-blue-100' 
+                              : 'bg-white border-gray-100 hover:border-blue-400 hover:shadow-xl active:scale-95'
                           }`}
                         >
                           <div className="relative w-20 h-20 shrink-0">
-                            <img src={w.images[0]} className={`w-full h-full rounded-2xl object-cover border ${isRecent ? 'grayscale' : ''}`} />
-                            {w.images.length > 1 && (
-                              <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                                {w.images.length}
-                              </div>
-                            )}
+                            <img src={w.images[0]} className={`w-full h-full rounded-[20px] object-cover border-2 border-white shadow-sm`} />
+                            <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white text-[10px] font-black w-7 h-7 rounded-full flex items-center justify-center border-2 border-white shadow-md">
+                              {w.images.length}
+                            </div>
                           </div>
                           <div className="flex-1">
-                            <p className={`font-black text-base leading-tight ${isRecent ? 'text-gray-400' : 'text-gray-800'}`}>{w.name}</p>
-                            <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-[10px] font-black uppercase mt-1 inline-block">{w.subject}</span>
+                            <p className="font-black text-lg leading-tight text-gray-800">{w.name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">{w.subject}</span>
+                              <span className="text-[10px] font-bold text-gray-400 italic">{w.date}</span>
+                              {isRecent && <span className="text-[10px] font-black text-green-500 uppercase ml-auto">Já feita hoje</span>}
+                            </div>
                           </div>
-                          <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-sm">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm bg-blue-50 text-blue-500 group-hover:bg-blue-600 group-hover:text-white`}>
                             <Rocket size={24} />
                           </div>
                         </button>
@@ -180,7 +201,7 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
                     <div className="text-center py-20 bg-gray-50 rounded-[40px] border-4 border-dashed border-gray-100">
                       <Wand2 className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                       <p className="text-gray-400 font-black text-xl mb-2">Ainda não tens fichas!</p>
-                      <p className="text-xs text-gray-400">Pede ajuda aos teus pais para tirares uma foto.</p>
+                      <p className="text-xs text-gray-400 px-10">Pede aos teus pais para tirarem fotografias às tuas fichas da escola.</p>
                     </div>
                   )}
                 </div>
@@ -188,21 +209,24 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
             )}
           </div>
         ) : (
-          <div className="py-12 flex flex-col items-center text-center space-y-8">
+          <div className="py-16 flex flex-col items-center text-center space-y-8">
             <div className="relative">
               <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center animate-bounce">
-                <Brain className="w-16 h-16 text-blue-500" />
+                <Brain className="w-16 h-16 text-blue-600" />
               </div>
-              <Loader2 className="w-40 h-40 text-blue-500 animate-spin absolute -top-4 -left-4 opacity-20" />
+              <Loader2 className="w-44 h-44 text-blue-200 animate-spin absolute -top-6 -left-6" />
             </div>
-            <div className="space-y-4">
-              <h3 className="text-2xl font-black text-blue-600 animate-pulse px-4 h-16 flex items-center justify-center">
+            <div className="space-y-4 px-6">
+              <h3 className="text-2xl font-black text-blue-600 animate-pulse h-16 flex items-center justify-center">
                 {FUNNY_MESSAGES[messageIndex]}
               </h3>
-              <div className="w-64 h-4 bg-blue-50 rounded-full overflow-hidden mx-auto border-2 border-blue-100">
-                <div className="h-full bg-blue-500 transition-all duration-700" style={{ width: `${processingProgress}%` }}></div>
+              <div className="w-72 h-4 bg-blue-50 rounded-full overflow-hidden mx-auto border-2 border-blue-100">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 transition-all duration-1000 ease-out" 
+                  style={{ width: `${processingProgress}%` }}
+                ></div>
               </div>
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">A carregar os teus desafios...</p>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">A inteligência artificial está a ler a tua ficha...</p>
             </div>
           </div>
         )}
