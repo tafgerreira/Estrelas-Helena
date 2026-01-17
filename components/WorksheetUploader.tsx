@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Subject, Question, Worksheet } from '../types';
-import { Loader2, AlertCircle, ArrowLeft, History, Sparkles, Brain, Wand2, Rocket, Lock, Camera } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, History, Sparkles, Brain, Wand2, Rocket, Lock, Camera, WifiOff } from 'lucide-react';
 import { generateQuestionsFromImages } from '../services/geminiService';
 
 interface WorksheetUploaderProps {
@@ -30,7 +31,7 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
   onClose 
 }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'vision' | 'network' | null>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
 
@@ -46,22 +47,21 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
 
   const processWorksheet = async (worksheet: Worksheet) => {
     setLoading(true);
-    setError(null);
+    setErrorType(null);
     setProcessingProgress(10);
     
     try {
       setProcessingProgress(30);
-      // Passar o subject real da ficha para o Gemini saber o que ler
       const questions = await generateQuestionsFromImages(worksheet.images, worksheet.subject);
       setProcessingProgress(80);
 
       if (questions && questions.length > 0) {
         onQuestionsGenerated(questions, worksheet.images, worksheet.id);
       } else {
-        setError("Não conseguimos processar esta ficha. Tenta tirar uma foto com mais luz ou menos tremida!");
+        setErrorType('vision');
       }
     } catch (err) {
-      setError("Houve um problema na ligação. Verifica a tua internet!");
+      setErrorType('network');
       console.error(err);
     } finally {
       setLoading(false);
@@ -167,7 +167,7 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-2xl font-black text-blue-600 animate-pulse">
+              <h3 className="text-2xl font-black text-blue-600 animate-pulse px-4">
                 {FUNNY_MESSAGES[messageIndex]}
               </h3>
               <div className="max-w-xs mx-auto">
@@ -188,23 +188,39 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
           </div>
         )}
 
-        {error && !loading && (
+        {errorType === 'vision' && !loading && (
           <div className="mt-8 p-6 bg-red-50 text-red-700 rounded-3xl border-4 border-red-100 animate-in shake duration-500">
             <div className="flex items-center gap-4 mb-2">
                <AlertCircle className="w-8 h-8 flex-shrink-0" />
-               <p className="font-black text-xl tracking-tight">Não conseguimos processar esta ficha.</p>
+               <p className="font-black text-xl tracking-tight">Não conseguimos ler esta ficha.</p>
             </div>
-            <p className="font-bold opacity-80 leading-relaxed mb-4">{error}</p>
-            <div className="flex flex-col gap-2 p-3 bg-white/50 rounded-xl">
+            <p className="font-bold opacity-80 leading-relaxed mb-4">A imagem pode estar demasiado escura ou desfocada para o robô professor.</p>
+            <div className="flex flex-col gap-2 p-3 bg-white/50 rounded-xl text-left">
                <p className="text-xs font-black uppercase text-red-500 flex items-center gap-2">
                  <Camera size={14} /> Pede ajuda aos teus pais para:
                </p>
-               <ul className="text-xs font-bold list-disc list-inside">
-                 <li>Tirar a foto com mais luz</li>
-                 <li>Manter a câmara parada (sem tremer)</li>
-                 <li>Enquadrar bem a página inteira</li>
+               <ul className="text-xs font-bold list-disc list-inside space-y-1">
+                 <li>Tirar a foto com mais luz (perto de uma janela)</li>
+                 <li>Manter a câmara bem parada</li>
+                 <li>Tentar apanhar a página toda de frente</li>
                </ul>
             </div>
+          </div>
+        )}
+
+        {errorType === 'network' && !loading && (
+          <div className="mt-8 p-6 bg-orange-50 text-orange-700 rounded-3xl border-4 border-orange-100 animate-in shake duration-500">
+            <div className="flex items-center gap-4 mb-2">
+               <WifiOff className="w-8 h-8 flex-shrink-0" />
+               <p className="font-black text-xl tracking-tight">Problema de Ligação</p>
+            </div>
+            <p className="font-bold opacity-80 leading-relaxed">Não conseguimos chegar à nuvem do conhecimento. Verifica se o Wi-Fi está ligado!</p>
+            <button 
+              onClick={onClose}
+              className="mt-4 w-full bg-orange-500 text-white py-3 rounded-2xl font-black shadow-lg"
+            >
+              Tentar Novamente
+            </button>
           </div>
         )}
       </div>
