@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Subject, Question, Worksheet } from '../types';
-import { Loader2, AlertCircle, ArrowLeft, History, Sparkles, Brain, Wand2, Rocket, Zap, RefreshCw, Layers, Image as ImageIcon } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, History, Sparkles, Brain, Wand2, Rocket, Zap, RefreshCw, Layers, Image as ImageIcon, Search, Pencil } from 'lucide-react';
 import { generateQuestionsFromImages } from '../services/geminiService';
 
 interface WorksheetUploaderProps {
@@ -29,6 +29,7 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
   onClose 
 }) => {
   const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<'reading' | 'generating' | 'idle'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
@@ -40,31 +41,36 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
     if (loading) {
       interval = window.setInterval(() => {
         setMessageIndex((prev) => (prev + 1) % FUNNY_MESSAGES.length);
-        setProcessingProgress(p => Math.min(p + 2, 98));
-      }, 2500);
+        setProcessingProgress(p => Math.min(p + (phase === 'reading' ? 1 : 2), 98));
+      }, 2000);
     }
     return () => clearInterval(interval);
-  }, [loading]);
+  }, [loading, phase]);
 
   const processWorksheet = async (worksheet: Worksheet) => {
     setLoading(true);
+    setPhase('reading');
     setError(null);
-    setProcessingProgress(10);
+    setProcessingProgress(5);
     
     try {
-      // Passamos TODAS as imagens da ficha selecionada
+      // Fase 1 e 2 acontecem dentro desta chamada unificada agora
+      // Mas vamos simular a mudança de fase para feedback visual
+      setTimeout(() => setPhase('generating'), 4000);
+
       const questions = await generateQuestionsFromImages(worksheet.images, worksheet.subject);
       
       if (questions && questions.length > 0) {
         onQuestionsGenerated(questions, worksheet.images, worksheet.id);
       } else {
-        throw new Error("Não foi possível gerar perguntas para esta ficha.");
+        throw new Error("O robô leu a ficha mas não conseguiu inventar perguntas. Tenta outra vez?");
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "O robô baralhou-se. Tenta outra ficha ou tira uma foto mais clara!");
+      setError(err.message === "API_KEY_MISSING" ? "Falta a Chave do Robô (API Key). Pede aos teus pais!" : (err.message || "O robô baralhou-se. Tenta outra ficha ou tira uma foto mais clara!"));
     } finally {
       setLoading(false);
+      setPhase('idle');
     }
   };
 
@@ -72,38 +78,37 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
     if (savedWorksheets.length === 0) return;
     
     setLoading(true);
+    setPhase('reading');
     setError(null);
     setProcessingProgress(5);
 
-    // 1. Selecionamos até 3 fichas aleatórias
     const selectedWorksheets = [...savedWorksheets]
       .sort(() => 0.5 - Math.random())
       .slice(0, 3);
     
-    // 2. RECOLHA DE TODAS AS IMAGENS (Todas as páginas de cada ficha selecionada)
     const combinedImages: string[] = [];
     selectedWorksheets.forEach(ws => {
       combinedImages.push(...ws.images);
     });
 
-    // 3. Limitamos a 10 imagens totais por questões de performance e limite da API
-    const finalBatch = combinedImages.slice(0, 10);
+    const finalBatch = combinedImages.slice(0, 8);
 
     try {
-      setProcessingProgress(25);
-      // Pedimos ao Gemini para analisar o conjunto total de imagens
+      setProcessingProgress(20);
+      setTimeout(() => setPhase('generating'), 5000);
+      
       const questions = await generateQuestionsFromImages(finalBatch, Subject.ALL);
       
       if (questions && questions.length > 0) {
         onQuestionsGenerated(questions, finalBatch, 'super-' + Date.now());
       } else {
-        throw new Error("O Super Desafio falhou ao criar perguntas.");
+        throw new Error("O Super Desafio falhou. Escolhe outras fichas!");
       }
     } catch (err: any) {
-      console.error(err);
-      setError("Houve um problema ao criar o Super Desafio. Tenta escolher fichas diferentes!");
+      setError("Houve um problema no Super Desafio. Tenta de novo!");
     } finally {
       setLoading(false);
+      setPhase('idle');
     }
   };
 
@@ -111,7 +116,6 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
     <div className="max-w-3xl mx-auto p-4 animate-in fade-in zoom-in-95 duration-300">
       <div className="bg-white rounded-[40px] shadow-2xl p-8 border-t-8 border-blue-500 relative overflow-hidden">
         
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft className="text-gray-500" />
@@ -150,7 +154,7 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
                       onClick={onClose}
                       className="text-gray-400 font-bold text-xs p-2"
                     >
-                      Voltar e escolher outra categoria
+                      Voltar
                     </button>
                  </div>
               </div>
@@ -188,7 +192,6 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
                             <div className="flex items-center gap-2 mt-1">
                               <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">{w.subject}</span>
                               <span className="text-[10px] font-bold text-gray-400 italic">{w.date}</span>
-                              {isRecent && <span className="text-[10px] font-black text-green-500 uppercase ml-auto">Já feita hoje</span>}
                             </div>
                           </div>
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm bg-blue-50 text-blue-500 group-hover:bg-blue-600 group-hover:text-white`}>
@@ -211,22 +214,31 @@ const WorksheetUploader: React.FC<WorksheetUploaderProps> = ({
         ) : (
           <div className="py-16 flex flex-col items-center text-center space-y-8">
             <div className="relative">
-              <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center animate-bounce">
-                <Brain className="w-16 h-16 text-blue-600" />
+              <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center">
+                {phase === 'reading' ? (
+                  <Search className="w-16 h-16 text-blue-600 animate-pulse" />
+                ) : (
+                  <Pencil className="w-16 h-16 text-purple-600 animate-bounce" />
+                )}
               </div>
               <Loader2 className="w-44 h-44 text-blue-200 animate-spin absolute -top-6 -left-6" />
             </div>
             <div className="space-y-4 px-6">
-              <h3 className="text-2xl font-black text-blue-600 animate-pulse h-16 flex items-center justify-center">
+              <div className="inline-block px-4 py-1 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest mb-2">
+                {phase === 'reading' ? "Fase 1: A ler a ficha..." : "Fase 2: A criar os desafios..."}
+              </div>
+              <h3 className="text-2xl font-black text-blue-600 h-16 flex items-center justify-center">
                 {FUNNY_MESSAGES[messageIndex]}
               </h3>
               <div className="w-72 h-4 bg-blue-50 rounded-full overflow-hidden mx-auto border-2 border-blue-100">
                 <div 
-                  className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 transition-all duration-1000 ease-out" 
+                  className={`h-full transition-all duration-1000 ease-out ${phase === 'reading' ? 'bg-blue-400' : 'bg-purple-500'}`} 
                   style={{ width: `${processingProgress}%` }}
                 ></div>
               </div>
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">A inteligência artificial está a ler a tua ficha...</p>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
+                {phase === 'reading' ? "O robô está a usar o 'Thinking Mode' para ver melhor." : "Quase pronto para o jogo!"}
+              </p>
             </div>
           </div>
         )}
