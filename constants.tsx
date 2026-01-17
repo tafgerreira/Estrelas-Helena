@@ -38,38 +38,25 @@ export const INITIAL_PRIZES = [
   { id: '4', name: 'Brinquedo Novo', cost: 50, image: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?q=80&w=400&h=400&auto=format&fit=crop', unlocked: false }
 ];
 
-// Gerador de Monstros e Monstrinhas
+// Gerador de Monstros Amigáveis (Seeds otimizados para parecerem monstros divertidos)
 const createAvatar = (id: string, name: string, seed: string, points: number, bgColor: string) => ({
   id,
   name,
-  url: `https://api.dicebear.com/7.x/big-smile/svg?seed=${seed}&backgroundColor=${bgColor.replace('#','')}`,
+  url: `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${seed}&backgroundColor=${bgColor.replace('#','')}&eyes=eyes12,eyes15,eyes19&mouth=mouth01,mouth05,mouth10`,
   pointsRequired: points
 });
 
 export const AVATAR_COLLECTION: Avatar[] = [
-  // EQUIPA INICIAL DA HELENA (Mix de Monstros e Monstrinhas)
-  createAvatar('mon-1', 'Três Olhos', 'Buster', 0, 'FF8C00'),    // Laranja Original
-  createAvatar('fem-1', 'Estrela Rosa', 'Mimi', 0, 'FF69B4'),   // Nova Monstrinha Rosa
-  createAvatar('mon-2', 'Verdinho', 'Toby', 0, '2ECC71'),       // Verde Original
-  createAvatar('fem-2', 'Lilás Mágica', 'Lulu', 0, '9B59B6'),   // Nova Monstrinha Lilás
-  createAvatar('mon-3', 'Polvinho', 'Milo', 0, 'F1C40F'),       // Amarelo Original
-  createAvatar('fem-3', 'Menta Doce', 'Daisy', 0, '1ABC9C'),    // Nova Monstrinha Menta
-  createAvatar('mon-4', 'Peludo Azul', 'Oliver', 0, '3498DB'),   // Azul Original
-
-  // NOVAS AMIGAS PARA DESBLOQUEAR (Tier 1 - 50 a 200 pontos)
-  createAvatar('fem-4', 'Princesa Monstro', 'Sasha', 50, 'FF1493'),
-  createAvatar('fem-5', 'Corações', 'Candy', 100, 'FFB6C1'),
-  createAvatar('fem-6', 'Fada da Floresta', 'Flora', 150, 'A7D08C'),
-  createAvatar('mon-7', 'Roxinho Alegre', 'Snooky', 200, '8E44AD'),
+  createAvatar('mon-1', 'Ciclope Azul', 'Buster', 0, '3498DB'),
+  createAvatar('fem-1', 'Rosinha', 'Mimi', 0, 'FF69B4'),
+  createAvatar('mon-2', 'Verdinho', 'Toby', 0, '2ECC71'),
+  createAvatar('fem-2', 'Lilás', 'Lulu', 0, '9B59B6'),
+  createAvatar('mon-3', 'Amarelinho', 'Milo', 0, 'F1C40F'),
+  createAvatar('fem-3', 'Turquesa', 'Daisy', 0, '1ABC9C'),
   
-  // MONSTROS E MONSTRINHAS RAROS (Tier 2 - 300 a 800 pontos)
-  createAvatar('fem-7', 'Brilho Estelar', 'Stella', 300, '2C3E50'),
-  createAvatar('fem-8', 'Arco-Íris', 'Iris', 400, '6366f1'),
-  createAvatar('mon-10', 'Faísca', 'Spark', 500, 'F39C12'),
-  createAvatar('fem-9', 'Dourada Real', 'Goldie', 800, 'FFD700'),
-
-  // LENDÁRIOS (+1000 pontos)
-  createAvatar('fem-10', 'Rainha das Estrelas', 'Galaxia', 1500, '4B0082'),
-  createAvatar('mon-17', 'Sombra Mágica', 'Shadow', 2000, '000000'),
-  createAvatar('mon-18', 'A Lenda Viva', 'Legend', 5000, 'FF4500'),
+  // Desbloqueáveis
+  createAvatar('fem-4', 'Super Monstra', 'Sasha', 50, 'FF1493'),
+  createAvatar('mon-7', 'Giga-Byte', 'Snooky', 200, '8E44AD'),
+  createAvatar('fem-7', 'Estelar', 'Stella', 500, '2C3E50'),
+  createAvatar('mon-18', 'Rei Monstro', 'Legend', 1000, 'FF4500'),
 ];
