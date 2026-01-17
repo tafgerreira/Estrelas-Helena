@@ -48,8 +48,8 @@ const App: React.FC = () => {
     subjectStats: initialSubjectStats,
     recentWorksheetIds: [],
     doubleCreditDays: [0, 6],
-    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Buster&backgroundColor=FFD700',
-    unlockedAvatarIds: ['av-1', 'av-2', 'av-3']
+    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Buster&backgroundColor=FF8C00',
+    unlockedAvatarIds: ['mon-1', 'mon-2', 'mon-3', 'mon-4']
   };
 
   const [stats, setStats] = useState<UserStats>(defaultStats);
@@ -86,7 +86,6 @@ const App: React.FC = () => {
     } catch (e) {
       setCloudStatus('error');
     } finally {
-      // Pequeno atraso para garantir que os estados React estão estáveis antes de permitir sync
       setTimeout(() => setIsLoaded(true), 500);
     }
   };
@@ -99,7 +98,6 @@ const App: React.FC = () => {
     if (!isLoaded) return;
 
     const sync = async () => {
-      // Guardar localmente
       localStorage.setItem('estudos_stats', JSON.stringify(stats));
       localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
       localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
