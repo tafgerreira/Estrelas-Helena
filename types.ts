@@ -1,3 +1,4 @@
+
 export enum Subject {
   PORTUGUESE = 'Português',
   MATH = 'Matemática',
@@ -43,8 +44,15 @@ export interface WonPrize extends Prize {
   dateWon: string;
 }
 
+export interface Avatar {
+  id: string;
+  url: string;
+  pointsRequired: number;
+}
+
 export interface UserStats {
   credits: number;
+  points: number; // Novo: Pontos acumulados (Estrelas)
   accuracy: number;
   totalQuestions: number;
   correctAnswers: number;
@@ -53,4 +61,6 @@ export interface UserStats {
   subjectStats: Record<Subject, SubjectMetrics>;
   recentWorksheetIds: string[];
   doubleCreditDays: number[];
+  selectedAvatarUrl: string;
+  unlockedAvatarIds: string[];
 }

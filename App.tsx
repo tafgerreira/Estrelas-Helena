@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { Subject, UserStats, Question, Prize, Worksheet, WonPrize, SubjectMetrics } from './types';
+import { Subject, UserStats, Question, Prize, Worksheet, WonPrize, SubjectMetrics, Avatar } from './types';
 import { INITIAL_PRIZES } from './constants';
 import Dashboard from './components/Dashboard';
 import ExerciseRoom from './components/ExerciseRoom';
 import Shop from './components/Shop';
+import AvatarShop from './components/AvatarShop';
 import WorksheetUploader from './components/WorksheetUploader';
 import Backoffice from './components/Backoffice';
 import { Lock, X, AlertTriangle, Cloud, RefreshCw, WifiOff } from 'lucide-react';
@@ -18,7 +20,7 @@ interface SessionProgress {
 }
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'dashboard' | 'exercise' | 'shop' | 'admin' | 'backoffice'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'exercise' | 'shop' | 'avatars' | 'admin' | 'backoffice'>('dashboard');
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
@@ -36,6 +38,7 @@ const App: React.FC = () => {
 
   const defaultStats: UserStats = {
     credits: 0,
+    points: 0, // Novo: Pontos acumulados
     accuracy: 0,
     totalQuestions: 0,
     correctAnswers: 0,
@@ -43,7 +46,9 @@ const App: React.FC = () => {
     wonHistory: [],
     subjectStats: initialSubjectStats,
     recentWorksheetIds: [],
-    doubleCreditDays: [0, 6]
+    doubleCreditDays: [0, 6],
+    selectedAvatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Helena',
+    unlockedAvatarIds: ['av-1', 'av-2']
   };
 
   const [stats, setStats] = useState<UserStats>(defaultStats);
@@ -54,10 +59,7 @@ const App: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
   const initData = async () => {
-    // 1. Tentar carregar localmente primeiro para velocidade
     loadFromLocalStorage();
-
-    // 2. Tentar carregar da Nuvem para garantir integridade
     if (!isSupabaseConfigured) {
       setCloudStatus('offline');
       return;
@@ -67,8 +69,7 @@ const App: React.FC = () => {
     try {
       const cloudData = await loadFromCloud();
       if (cloudData) {
-        // Conciliação de dados: Prioridade à Nuvem se os dados forem diferentes
-        setStats(cloudData.stats || defaultStats);
+        setStats(prev => ({ ...defaultStats, ...cloudData.stats }));
         setPrizes(cloudData.prizes || INITIAL_PRIZES);
         setWorksheets(cloudData.worksheets || []);
         setCloudStatus('online');
@@ -86,7 +87,7 @@ const App: React.FC = () => {
       const savedPrizes = localStorage.getItem('estudos_prizes');
       const savedWorksheets = localStorage.getItem('estudos_worksheets');
       
-      if (savedStats) setStats(JSON.parse(savedStats));
+      if (savedStats) setStats(prev => ({ ...defaultStats, ...JSON.parse(savedStats) }));
       if (savedPrizes) setPrizes(JSON.parse(savedPrizes));
       if (savedWorksheets) setWorksheets(JSON.parse(savedWorksheets));
     } catch (e) {
@@ -100,18 +101,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const sync = async () => {
-      // Tentar gravar localmente (com proteção contra falta de espaço)
       try {
         localStorage.setItem('estudos_stats', JSON.stringify(stats));
         localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
         localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
       } catch (e) {
-        console.error("LocalStorage está cheio! A confiar apenas na Nuvem.", e);
+        console.error("LocalStorage está cheio!");
       }
 
-      // Tentar gravar na Nuvem (sempre prioridade se configurado)
       if (!isSupabaseConfigured) return;
-
       setCloudStatus('syncing');
       try {
         await saveToCloud({ stats, prizes, worksheets });
@@ -120,7 +118,6 @@ const App: React.FC = () => {
         setCloudStatus('error');
       }
     };
-
     const timeoutId = setTimeout(sync, 1500);
     return () => clearTimeout(timeoutId);
   }, [stats, prizes, worksheets]);
@@ -129,16 +126,9 @@ const App: React.FC = () => {
     try {
       const decoded = decodeURIComponent(escape(atob(encodedData)));
       const data = JSON.parse(decoded);
-      
       if (data.prizes) setPrizes(data.prizes);
       if (data.worksheets) setWorksheets(data.worksheets);
-      if (data.stats) {
-        setStats({
-          ...defaultStats,
-          ...data.stats,
-          credits: data.stats.credits ?? 0,
-        });
-      }
+      if (data.stats) setStats({ ...defaultStats, ...data.stats });
       setCurrentQuestions([]);
       setSessionProgress(null);
     } catch (e) {
@@ -148,17 +138,19 @@ const App: React.FC = () => {
 
   const handleExerciseComplete = (correct: number, earnedCredits: number, finalQuestionsCount: number) => {
     const currentSub = selectedSubject || Subject.PORTUGUESE;
-    const sessionMinutes = 10;
     const today = new Date().getDay();
     const isDoubleDay = stats.doubleCreditDays.includes(today);
     const finalEarnedCredits = isDoubleDay ? earnedCredits * 2 : earnedCredits;
+    
+    // Helena ganha 10 pontos por cada resposta correta para desbloquear avatares
+    const earnedPoints = correct * 10;
 
     setStats(prev => {
       const newTotalQuestions = (prev.totalQuestions || 0) + finalQuestionsCount;
       const newCorrectAnswers = (prev.correctAnswers || 0) + correct;
       const updatedSubjectStats = { ...prev.subjectStats };
       updatedSubjectStats[currentSub] = {
-        totalMinutes: (updatedSubjectStats[currentSub]?.totalMinutes || 0) + sessionMinutes,
+        totalMinutes: (updatedSubjectStats[currentSub]?.totalMinutes || 0) + 10,
         totalQuestions: (updatedSubjectStats[currentSub]?.totalQuestions || 0) + finalQuestionsCount,
         correctAnswers: (updatedSubjectStats[currentSub]?.correctAnswers || 0) + correct,
       };
@@ -171,10 +163,11 @@ const App: React.FC = () => {
       return {
         ...prev,
         credits: (prev.credits || 0) + finalEarnedCredits,
+        points: (prev.points || 0) + earnedPoints,
         totalQuestions: newTotalQuestions,
         correctAnswers: newCorrectAnswers,
         accuracy: newTotalQuestions > 0 ? Math.round((newCorrectAnswers / newTotalQuestions) * 100) : 0,
-        dailyMinutes: (prev.dailyMinutes || 0) + sessionMinutes,
+        dailyMinutes: (prev.dailyMinutes || 0) + 10,
         subjectStats: updatedSubjectStats,
         recentWorksheetIds: updatedRecentIds
       };
@@ -184,10 +177,6 @@ const App: React.FC = () => {
     setSessionProgress(null);
     setView('dashboard');
   };
-
-  const filteredWorksheets = selectedSubject === Subject.ALL 
-    ? worksheets 
-    : worksheets.filter(w => w.subject === selectedSubject);
 
   return (
     <div className="min-h-screen bg-[#f0f9ff] pb-12">
@@ -204,13 +193,7 @@ const App: React.FC = () => {
            cloudStatus === 'syncing' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 
            cloudStatus === 'error' ? <AlertTriangle className="w-4 h-4" /> :
            <WifiOff className="w-4 h-4" />}
-          
-          <span className="hidden sm:inline">
-            {cloudStatus === 'online' ? 'DADOS SEGUROS' : 
-             cloudStatus === 'syncing' ? 'A GRAVAR...' : 
-             cloudStatus === 'error' ? 'ERRO NUVEM' :
-             'MODO LOCAL'}
-          </span>
+          <span className="hidden sm:inline">{cloudStatus === 'online' ? 'DADOS SEGUROS' : cloudStatus === 'syncing' ? 'A GRAVAR...' : 'MODO LOCAL'}</span>
         </button>
       </div>
 
@@ -220,6 +203,7 @@ const App: React.FC = () => {
           prizes={prizes} 
           onSelectSubject={(s) => { setSelectedSubject(s); setView('admin'); }} 
           onOpenShop={() => setView('shop')} 
+          onOpenAvatarShop={() => setView('avatars')}
           onOpenAdmin={() => setShowPasswordPrompt(true)} 
         />
       )}
@@ -233,9 +217,7 @@ const App: React.FC = () => {
           initialCorrectCount={sessionProgress?.correctCount || 0}
           initialTotalCredits={sessionProgress?.totalCredits || 0}
           globalCredits={stats.credits}
-          onProgressUpdate={(p) => {
-            setSessionProgress({ ...p, worksheetId: sessionProgress?.worksheetId });
-          }}
+          onProgressUpdate={(p) => setSessionProgress({ ...p, worksheetId: sessionProgress?.worksheetId })}
           onComplete={handleExerciseComplete}
           onExit={() => setView('dashboard')}
         />
@@ -249,10 +231,31 @@ const App: React.FC = () => {
         }
       }} onClose={() => setView('dashboard')} />}
 
+      {view === 'avatars' && (
+        <AvatarShop 
+          stats={stats}
+          onSelect={(avatar) => {
+            setStats(prev => ({ ...prev, selectedAvatarUrl: avatar.url }));
+            setView('dashboard');
+          }}
+          onUnlock={(avatar) => {
+            // Unlocks are based on accumulated points, not "spent"
+            if (stats.points >= avatar.pointsRequired) {
+              setStats(prev => ({ 
+                ...prev, 
+                unlockedAvatarIds: [...prev.unlockedAvatarIds, avatar.id],
+                selectedAvatarUrl: avatar.url
+              }));
+            }
+          }}
+          onClose={() => setView('dashboard')}
+        />
+      )}
+
       {view === 'admin' && (
         <WorksheetUploader 
           subject={selectedSubject || Subject.PORTUGUESE}
-          savedWorksheets={filteredWorksheets}
+          savedWorksheets={selectedSubject === Subject.ALL ? worksheets : worksheets.filter(w => w.subject === selectedSubject)}
           recentWorksheetIds={stats.recentWorksheetIds}
           onQuestionsGenerated={(qs, imgs, id) => {
             setCurrentQuestions(qs);
@@ -291,27 +294,12 @@ const App: React.FC = () => {
             <form onSubmit={(e) => {
               e.preventDefault();
               if(passwordInput === ADMIN_PASSWORD) { 
-                setView('backoffice'); 
-                setShowPasswordPrompt(false); 
-                setPasswordInput(''); 
-                setPasswordError(false); 
-              } else {
-                setPasswordError(true);
-              }
+                setView('backoffice'); setShowPasswordPrompt(false); setPasswordInput(''); setPasswordError(false); 
+              } else setPasswordError(true);
             }}>
-              <p className="text-gray-500 mb-4 text-sm">Insira o código de acesso para gerir fichas e prémios.</p>
-              <input 
-                type="password" 
-                autoFocus 
-                value={passwordInput} 
-                onChange={(e) => setPasswordInput(e.target.value)} 
-                className={`w-full p-4 border-2 rounded-xl mb-4 text-center text-2xl font-bold tracking-widest ${passwordError ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-blue-500'}`} 
-                placeholder="******" 
-              />
-              {passwordError && <p className="text-red-500 text-xs font-bold text-center mb-4">Código incorreto! Tente novamente.</p>}
-              <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg transition-all">
-                Entrar no Painel
-              </button>
+              <p className="text-gray-500 mb-4 text-sm">Insira o código de acesso.</p>
+              <input type="password" autoFocus value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className={`w-full p-4 border-2 rounded-xl mb-4 text-center text-2xl font-bold tracking-widest ${passwordError ? 'border-red-500 bg-red-50' : 'border-gray-200'}`} placeholder="******" />
+              <button type="submit" className="w-full bg-blue-500 text-white py-4 rounded-xl font-bold shadow-lg">Entrar</button>
             </form>
           </div>
         </div>
