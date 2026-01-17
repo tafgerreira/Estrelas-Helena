@@ -13,22 +13,26 @@ export const generateQuestionsFromImages = async (
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Usamos o modelo PRO para máxima precisão em caligrafia e imagens escolares
+  // Usamos o modelo PRO para máxima precisão analítica
   const modelName = 'gemini-3-pro-preview';
 
-  const systemPrompt = `És um professor experiente do 2º ano de escolaridade em Portugal. 
-    Analisa as imagens de fichas escolares fornecidas e gera EXATAMENTE 5 exercícios educativos.
-    
-    REGRAS DE OURO:
-    1. Disciplina: ${subject === Subject.ALL ? 'Misto (Português, Matemática e Estudo do Meio)' : subject}.
-    2. Linguagem: Português de Portugal (PT-PT) amigável para uma criança de 7-8 anos.
-    3. Resiliência: Se a imagem estiver tremida, identifica o tema e inventa perguntas pedagógicas sobre esse tema. NÃO retornes erro por má qualidade de imagem.
-    4. Tipos de Questão:
-       - 'multiple-choice': 4 opções claras.
-       - 'text': Resposta curta.
-       - 'word-ordering': Ordenar palavras para formar uma frase correta.
+  const systemPrompt = `És um professor de elite do 1º Ciclo (2º ano) em Portugal.
+    A tua missão é analisar imagens de fichas escolares da Helena e criar 5 exercícios divertidos.
 
-    DEVES RETORNAR APENAS UM OBJETO JSON COM ESTA ESTRUTURA:
+    INSTRUÇÕES DE LEITURA (MUITO IMPORTANTE):
+    1. Se o texto estiver difícil de ler, NÃO DESISTAS. Observa o contexto visual: 
+       - Se vires números e sinais (+, -, x), cria problemas de Matemática.
+       - Se vires desenhos de animais ou plantas, cria perguntas de Estudo do Meio.
+       - Se vires linhas de caligrafia ou textos longos, cria perguntas de Português.
+    2. Usa o currículo do 2º ano de Portugal: numeração até 1000, tabuadas (2, 3, 4, 5, 10), classes das palavras (nomes, verbos, adjetivos), meio ambiente, etc.
+    3. Linguagem: PT-PT, muito carinhosa e motivadora para a Helena.
+
+    TIPOS DE QUESTÕES PERMITIDAS:
+    - 'multiple-choice': Pergunta com 4 opções.
+    - 'text': Pergunta de resposta aberta curta.
+    - 'word-ordering': Fornece uma frase desordenada em 'options' para a Helena ordenar.
+
+    REQUISITO TÉCNICO: Retorna APENAS um objeto JSON puro, sem markdown, com esta estrutura:
     {
       "questions": [
         {
@@ -36,17 +40,20 @@ export const generateQuestionsFromImages = async (
           "question": "texto da pergunta",
           "options": ["opção 1", "opção 2"...], // obrigatório para choice e ordering
           "correctAnswer": "resposta exata",
-          "explanation": "Dica pedagógica curta e encorajadora",
+          "explanation": "Explicação pedagógica rápida",
           "complexity": 1-5
         }
       ]
     }`;
 
-  const imageParts = base64Images.slice(0, 10).map(img => {
-    const mimeType = img.match(/data:([^;]+);/)?.[1] || "image/jpeg";
-    const data = img.includes(',') ? img.split(',')[1] : img;
+  const imageParts = base64Images.slice(0, 5).map(img => {
+    // Garante que enviamos apenas a parte dos dados, sem o prefixo mime
+    const dataOnly = img.includes(',') ? img.split(',')[1] : img;
     return {
-      inlineData: { mimeType, data }
+      inlineData: { 
+        mimeType: "image/jpeg", 
+        data: dataOnly 
+      }
     };
   });
 
@@ -56,37 +63,32 @@ export const generateQuestionsFromImages = async (
       contents: {
         parts: [
           ...imageParts, 
-          { text: `Gera 5 exercícios de nível 2º ano. Disciplina: ${subject}. Se for Misto, garante que há pelo menos 1 de cada área (PT, MAT, ESTUDO).` }
+          { text: `Analisa estas fichas de ${subject}. Gera 5 exercícios educativos perfeitos para o 2º ano. Se a imagem for inconclusiva, baseia-te no tema geral que conseguires detetar para criar exercícios novos.` }
         ]
       },
       config: {
         systemInstruction: systemPrompt,
-        temperature: 0.8,
+        temperature: 0.7,
         responseMimeType: "application/json",
       }
     });
 
-    let responseText = response.text || "";
-    
-    // Limpeza profunda de resíduos de markdown
-    responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-
-    const result = JSON.parse(responseText);
+    const responseText = response.text || "";
+    const result = JSON.parse(responseText.replace(/```json/g, "").replace(/```/g, "").trim());
     
     if (!result.questions || !Array.isArray(result.questions)) {
-      throw new Error("Formato de perguntas inválido");
+      throw new Error("Formato inválido");
     }
 
     return result.questions.map((q: any) => ({
       ...q,
       id: Math.random().toString(36).substr(2, 9),
       complexity: q.complexity || 2,
-      explanation: q.explanation || "Muito bem! Continua a brilhar!"
+      explanation: q.explanation || "Muito bem, Helena! Estás a progredir imenso!"
     }));
 
   } catch (error) {
-    console.error("Erro no Gemini Service:", error);
-    // Retornamos uma lista vazia para que a UI mostre o erro amigável ao utilizador
+    console.error("Erro ao gerar perguntas:", error);
     return [];
   }
 };
