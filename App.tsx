@@ -48,8 +48,8 @@ const App: React.FC = () => {
     subjectStats: initialSubjectStats,
     recentWorksheetIds: [],
     doubleCreditDays: [0, 6],
-    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Buster&backgroundColor=FF8C00',
-    unlockedAvatarIds: ['mon-1', 'mon-2', 'mon-3', 'mon-4']
+    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Mimi&backgroundColor=FF69B4',
+    unlockedAvatarIds: ['mon-1', 'mon-2', 'mon-3', 'mon-4', 'fem-1', 'fem-2', 'fem-3']
   };
 
   const [stats, setStats] = useState<UserStats>(defaultStats);
