@@ -47,7 +47,7 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
       <div className="text-center mb-16 px-4">
         <h1 className="text-5xl font-black text-gray-800 mb-4 tracking-tighter">Mundo dos Avatares 🌈</h1>
         <p className="text-xl text-gray-500 font-bold max-w-2xl mx-auto">
-          Resolve desafios para ganhar <span className="text-amber-500">Estrelas</span> e desbloquear novos amigos para o teu perfil!
+          Desbloqueia novos amigos para o teu perfil! Temos <span className="text-blue-500">Formas</span>, <span className="text-pink-500">Monstros</span> e <span className="text-amber-500">Carinhas</span> fixes.
         </p>
       </div>
 
@@ -55,7 +55,6 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
         {AVATAR_COLLECTION.map((avatar) => {
           const isUnlocked = stats.unlockedAvatarIds.includes(avatar.id) || currentPoints >= avatar.pointsRequired;
           const isSelected = stats.selectedAvatarUrl === avatar.url;
-          const canUnlock = currentPoints >= avatar.pointsRequired;
           const progress = Math.min((currentPoints / avatar.pointsRequired) * 100, 100);
 
           return (
@@ -73,7 +72,7 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
                 <img 
                   src={avatar.url} 
                   alt="Avatar" 
-                  className={`w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110 ${!isUnlocked ? 'grayscale brightness-75 opacity-40' : 'drop-shadow-md'}`} 
+                  className={`w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110 ${!isUnlocked ? 'grayscale brightness-75 opacity-40 blur-[2px]' : 'drop-shadow-md'}`} 
                 />
                 
                 {!isUnlocked && (
