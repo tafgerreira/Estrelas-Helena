@@ -38,89 +38,49 @@ export const INITIAL_PRIZES = [
   { id: '4', name: 'Brinquedo Novo', cost: 50, image: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?q=80&w=400&h=400&auto=format&fit=crop', unlocked: false }
 ];
 
-// Gerador de Avatares Squish & Ami
-const createSquish = (id: string, seed: string, points: number, type: 'big-smile' | 'fun-emoji' | 'bottts' | 'adventurer' = 'big-smile', bg = 'ffd5dc') => ({
+// Gerador de Avatares baseado nas imagens de referência
+const createSquish = (id: string, seed: string, points: number, type: string = 'fun-emoji', bg = 'ffd5dc') => ({
   id,
   url: `https://api.dicebear.com/7.x/${type}/svg?seed=${seed}&backgroundColor=${bg}`,
   pointsRequired: points
 });
 
 export const AVATAR_COLLECTION: Avatar[] = [
-  // --- INICIAIS (0 - 100) ---
-  createSquish('av-1', 'Helena', 0, 'big-smile', 'ffd5dc'),
-  createSquish('av-2', 'MallowCat', 0, 'fun-emoji', 'd1d4f9'),
-  createSquish('av-3', 'Pinkie', 0, 'big-smile', 'b6e3f4'),
-  createSquish('av-4', 'SquishyPanda', 50, 'fun-emoji', 'c0aede'),
-  createSquish('av-5', 'Bluey', 75, 'big-smile', 'ffdfbf'),
-  createSquish('av-6', 'AmiBunny', 100, 'big-smile', 'd1f4d1'),
+  // --- FAMÍLIA CARINHAS (Ref Imagem 1: Hand-drawn circles) ---
+  createSquish('av-1', 'Helena', 0, 'micah', 'ffd5dc'),
+  createSquish('av-2', 'Sorridente', 0, 'fun-emoji', 'd1f4d1'),
+  createSquish('av-3', 'Azulito', 0, 'micah', 'b6e3f4'),
+  createSquish('av-4', 'RosaPuff', 50, 'fun-emoji', 'fbcfe8'),
+  createSquish('av-5', 'LaranjaDocinho', 75, 'micah', 'ffdfbf'),
+  createSquish('av-6', 'VerdeEsperança', 100, 'fun-emoji', 'dcfce7'),
 
-  // --- FAMÍLIA JARDIM (150 - 500) ---
-  createSquish('av-7', 'Bee', 150, 'fun-emoji', 'fef08a'),
-  createSquish('av-8', 'Ladybug', 200, 'fun-emoji', 'fca5a5'),
-  createSquish('av-9', 'Flower', 250, 'big-smile', 'd1f4d1'),
-  createSquish('av-10', 'Leafy', 300, 'big-smile', 'bbf7d0'),
-  createSquish('av-11', 'Sun', 400, 'fun-emoji', 'fde047'),
-  createSquish('av-12', 'Cloud', 500, 'big-smile', 'e0f2fe'),
+  // --- FAMÍLIA FORMAS (Ref Imagem 2: Geometric shapes with limbs) ---
+  createSquish('av-7', 'QuadradoAzul', 150, 'shapes', 'e0f2fe'),
+  createSquish('av-8', 'TrianguloAmarelo', 200, 'shapes', 'fef9c3'),
+  createSquish('av-9', 'PentagonoRosa', 250, 'shapes', 'fdf2f8'),
+  createSquish('av-10', 'EstrelaDourada', 300, 'shapes', 'fef3c7'),
+  createSquish('av-11', 'CirculoVerde', 400, 'shapes', 'f0fdf4'),
+  createSquish('av-12', 'HexagonoRoxo', 500, 'shapes', 'f5f3ff'),
 
-  // --- FAMÍLIA DOCES (600 - 1250) ---
-  createSquish('av-13', 'Candy', 600, 'fun-emoji', 'fbcfe8'),
-  createSquish('av-14', 'Cookie', 700, 'big-smile', 'fed7aa'),
-  createSquish('av-15', 'Donut', 800, 'fun-emoji', 'ddd6fe'),
-  createSquish('av-16', 'Cupcake', 900, 'big-smile', 'fecdd3'),
-  createSquish('av-17', 'Marshmallow', 1000, 'fun-emoji', 'f0f9ff'),
-  createSquish('av-18', 'Lollipop', 1250, 'big-smile', 'fae8ff'),
+  // --- FAMÍLIA MONSTROS FOFOS (Ref Imagem 4: Sketchy Monsters) ---
+  createSquish('av-13', 'Gloop', 600, 'bottts-neutral', 'ccfbf1'),
+  createSquish('av-14', 'Zorch', 700, 'bottts-neutral', 'fee2e2'),
+  createSquish('av-15', 'Bloop', 800, 'bottts-neutral', 'dcfce7'),
+  createSquish('av-16', 'FuzzBall', 900, 'lorelei', 'fbcfe8'),
+  createSquish('av-17', 'MonsterPuff', 1000, 'lorelei', 'e0f2fe'),
+  createSquish('av-18', 'AmiDino', 1250, 'lorelei', 'dcfce7'),
 
-  // --- FAMÍLIA AMIGURUMI (1500 - 3000) ---
-  createSquish('av-19', 'Wooly', 1500, 'adventurer', 'ede9fe'),
-  createSquish('av-20', 'Stitch', 1750, 'bottts', 'e0e7ff'),
-  createSquish('av-21', 'Crochet', 2000, 'adventurer', 'ffedd5'),
-  createSquish('av-22', 'Buttons', 2250, 'bottts', 'ecfdf5'),
-  createSquish('av-23', 'Patch', 2500, 'adventurer', 'fdf2f8'),
-  createSquish('av-24', 'Thread', 3000, 'bottts', 'f0fdf4'),
+  // --- FAMÍLIA AVENTURA (Ref Imagem 3: 3D-ish characters) ---
+  createSquish('av-19', 'Exploradora', 1500, 'adventurer', 'ede9fe'),
+  createSquish('av-20', 'SuperHelena', 1750, 'adventurer', 'e0e7ff'),
+  createSquish('av-21', 'MestraEstrela', 2000, 'adventurer', 'ffedd5'),
+  createSquish('av-22', 'RobotAmigo', 2250, 'bottts', 'ecfdf5'),
+  createSquish('av-23', 'CiberPuff', 2500, 'bottts', 'fdf2f8'),
+  createSquish('av-24', 'PixelHelena', 3000, 'pixel-art', 'f0fdf4'),
 
-  // --- FAMÍLIA SQUISHY MONSTERS (3500 - 6000) ---
-  createSquish('av-25', 'Gloop', 3500, 'fun-emoji', 'ccfbf1'),
-  createSquish('av-26', 'Zorch', 4000, 'bottts', 'fee2e2'),
-  createSquish('av-27', 'Bloop', 4500, 'fun-emoji', 'dcfce7'),
-  createSquish('av-28', 'Fuzz', 5000, 'big-smile', 'fae8ff'),
-  createSquish('av-29', 'Slimey', 5500, 'fun-emoji', 'fef9c3'),
-  createSquish('av-30', 'Ooze', 6000, 'bottts', 'f3e8ff'),
-
-  // --- FAMÍLIA ESPACIAL (7000 - 12000) ---
-  createSquish('av-31', 'Nova', 7000, 'fun-emoji', '1e1b4b'),
-  createSquish('av-32', 'Orion', 8000, 'big-smile', '312e81'),
-  createSquish('av-33', 'Starry', 9000, 'fun-emoji', '4338ca'),
-  createSquish('av-34', 'Comet', 10000, 'bottts', '3730a3'),
-  createSquish('av-35', 'Moon', 11000, 'big-smile', '1e293b'),
-  createSquish('av-36', 'Nebula', 12000, 'fun-emoji', '4c1d95'),
-
-  // --- FAMÍLIA REINO MÁGICO (13000 - 20000) ---
-  createSquish('av-37', 'Unicorn', 13000, 'big-smile', 'fdf4ff'),
-  createSquish('av-38', 'Dragon', 14000, 'fun-emoji', 'f0fdf4'),
-  createSquish('av-39', 'Phoenix', 15000, 'big-smile', 'fff7ed'),
-  createSquish('av-40', 'Griffin', 16000, 'fun-emoji', 'fefce8'),
-  createSquish('av-41', 'Mermaid', 18000, 'big-smile', 'ecfeff'),
-  createSquish('av-42', 'Fairy', 20000, 'big-smile', 'fff1f2'),
-
-  // --- FAMÍLIA ROBÓTICA SMILE (22000 - 35000) ---
-  createSquish('av-43', 'CyberSquish', 22000, 'bottts', 'f8fafc'),
-  createSquish('av-44', 'DataDrop', 24000, 'bottts', 'f1f5f9'),
-  createSquish('av-45', 'PixelPuff', 26000, 'bottts', 'e2e8f0'),
-  createSquish('av-46', 'Circuit', 28000, 'bottts', 'cbd5e1'),
-  createSquish('av-47', 'Nano', 30000, 'bottts', '94a3b8'),
-  createSquish('av-48', 'GigaPuff', 35000, 'bottts', '64748b'),
-
-  // --- FAMÍLIA LENDÁRIA (40000 - 100000) ---
-  createSquish('av-49', 'GoldenSquish', 40000, 'fun-emoji', 'fef3c7'),
-  createSquish('av-50', 'DiamondPuff', 45000, 'big-smile', 'e0f2fe'),
-  createSquish('av-51', 'RainbowAmi', 50000, 'adventurer', 'fae8ff'),
-  createSquish('av-52', 'Crystal', 55000, 'fun-emoji', 'f5f3ff'),
-  createSquish('av-53', 'Zen', 60000, 'big-smile', 'f0fdf4'),
-  createSquish('av-54', 'Shadow', 65000, 'fun-emoji', '0f172a'),
-  createSquish('av-55', 'Light', 70000, 'big-smile', 'ffffff'),
-  createSquish('av-56', 'Master', 75000, 'bottts', '171717'),
-  createSquish('av-57', 'Ethereal', 80000, 'fun-emoji', 'faf5ff'),
-  createSquish('av-58', 'Infinity', 85000, 'big-smile', 'fdf2f8'),
-  createSquish('av-59', 'Universe', 90000, 'fun-emoji', '020617'),
-  createSquish('av-60', 'TheOne', 100000, 'bottts', 'facc15'),
+  // --- NÍVEIS LENDÁRIOS (Extra) ---
+  createSquish('av-25', 'ReinhaMagica', 5000, 'lorelei', 'fdf4ff'),
+  createSquish('av-26', 'DragaoEstrela', 7500, 'bottts', '1e1b4b'),
+  createSquish('av-27', 'UnicornioPuff', 10000, 'lorelei', 'fff1f2'),
+  createSquish('av-28', 'Infinito', 25000, 'shapes', '171717'),
 ];
