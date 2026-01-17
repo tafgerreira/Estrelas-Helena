@@ -38,7 +38,7 @@ const App: React.FC = () => {
 
   const defaultStats: UserStats = {
     credits: 0,
-    points: 0, // Novo: Pontos acumulados
+    points: 0, 
     accuracy: 0,
     totalQuestions: 0,
     correctAnswers: 0,
@@ -47,8 +47,8 @@ const App: React.FC = () => {
     subjectStats: initialSubjectStats,
     recentWorksheetIds: [],
     doubleCreditDays: [0, 6],
-    selectedAvatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Helena',
-    unlockedAvatarIds: ['av-1', 'av-2']
+    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Helena&backgroundColor=ffd5dc',
+    unlockedAvatarIds: ['av-1', 'av-2', 'av-3', 'av-4', 'av-5', 'av-6']
   };
 
   const [stats, setStats] = useState<UserStats>(defaultStats);
