@@ -48,7 +48,7 @@ const App: React.FC = () => {
     subjectStats: initialSubjectStats,
     recentWorksheetIds: [],
     doubleCreditDays: [0, 6],
-    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Bluey&backgroundColor=b6e3f4&mouth=openedSmile',
+    selectedAvatarUrl: 'https://api.dicebear.com/9.x/big-smile/svg?seed=BlueyMonster&backgroundColor=b6e3f4',
     unlockedAvatarIds: ['av-1', 'av-2', 'av-3']
   };
 
@@ -68,28 +68,23 @@ const App: React.FC = () => {
       const cloudData = isSupabaseConfigured ? await loadFromCloud() : null;
       
       if (cloudData && cloudData.stats) {
-        console.log("Sincronização: Dados da Nuvem carregados com sucesso.");
         setStats({ ...defaultStats, ...cloudData.stats });
         setPrizes(cloudData.prizes || INITIAL_PRIZES);
         setWorksheets(cloudData.worksheets || []);
         setCloudStatus('online');
         
-        // LIMPEZA: Como temos dados na nuvem, removemos lixo do telemóvel
         localStorage.removeItem('estudos_worksheets'); 
         localStorage.removeItem('estudos_prizes');
         localStorage.setItem('estudos_stats', JSON.stringify(cloudData.stats));
       } else {
-        // 2. Fallback para LocalStorage apenas se nuvem falhar ou estiver vazia
-        console.log("Sincronização: Nuvem vazia ou offline. A usar armazenamento local.");
         loadFromLocalStorage();
         setCloudStatus(isSupabaseConfigured ? 'error' : 'offline');
       }
     } catch (e) {
-      console.error("Erro crítico na sincronização inicial:", e);
       loadFromLocalStorage();
       setCloudStatus('error');
     } finally {
-      setIsLoaded(true); // Marca como pronto para permitir gravações futuras
+      setIsLoaded(true); 
     }
   };
 
@@ -111,7 +106,6 @@ const App: React.FC = () => {
     initData();
   }, []);
 
-  // Sincronização Inteligente: Só grava se a app já tiver terminado o arranque
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -128,19 +122,16 @@ const App: React.FC = () => {
 
       if (success) {
         setCloudStatus('online');
-        // LIMPEZA PÓS-SYNC: Limpa imagens pesadas do telemóvel para evitar erros de quota
         localStorage.removeItem('estudos_worksheets');
         localStorage.removeItem('estudos_prizes');
-        // Mantém apenas os stats leves como cache
         localStorage.setItem('estudos_stats', JSON.stringify(stats));
       } else {
         setCloudStatus('error');
-        // Se a nuvem falhou agora, guarda localmente por precaução
         try {
           localStorage.setItem('estudos_stats', JSON.stringify(stats));
           localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
         } catch (e) {
-          console.error("Quota do telemóvel excedida e Nuvem falhou!");
+          console.error("Quota do telemóvel excedida!");
         }
       }
     };
