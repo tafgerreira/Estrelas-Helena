@@ -1,31 +1,54 @@
+
 import React from 'react';
 import { Subject, UserStats, Prize } from '../types';
 import { SUBJECT_CONFIG } from '../constants';
-import { Wallet, Sparkles, Star, Gift, Settings } from 'lucide-react';
+import { Wallet, Sparkles, Star, Gift, Settings, UserCircle, Trophy } from 'lucide-react';
 
 interface DashboardProps {
   stats: UserStats;
   prizes: Prize[];
   onSelectSubject: (subject: Subject) => void;
   onOpenShop: () => void;
+  onOpenAvatarShop: () => void;
   onOpenAdmin: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, onOpenShop, onOpenAdmin }) => {
+const Dashboard: React.FC<DashboardProps> = ({ stats, prizes, onSelectSubject, onOpenShop, onOpenAvatarShop, onOpenAdmin }) => {
   const nextPrize = prizes.filter(p => !p.unlocked).sort((a,b) => a.cost - b.cost)[0];
   const progress = nextPrize ? Math.min((stats.credits / nextPrize.cost) * 100, 100) : 0;
+  const currentPoints = stats.points || 0;
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8 animate-in fade-in duration-700">
       {/* Header com Saldo e Avatar */}
       <header className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white p-8 rounded-[40px] shadow-xl border-4 border-white">
         <div className="flex items-center gap-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-pink-300 to-rose-400 rounded-full border-4 border-white shadow-lg overflow-hidden shrink-0">
-             <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Helena" alt="Avatar da Helena" />
+          <div className="relative">
+            <button 
+              onClick={onOpenAvatarShop}
+              className="group relative w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-br from-pink-100 to-rose-200 rounded-[35px] border-4 border-white shadow-2xl overflow-hidden shrink-0 transition-all hover:scale-105 active:scale-95"
+            >
+               <img 
+                 src={stats.selectedAvatarUrl || "https://api.dicebear.com/7.x/adventurer/svg?seed=Helena"} 
+                 alt="Avatar da Helena" 
+                 className="w-full h-full object-contain p-2"
+               />
+               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-black uppercase tracking-tighter">
+                 <UserCircle size={20} className="mb-1" />
+                 Mudar
+               </div>
+            </button>
+            <div className="absolute -bottom-2 -right-2 bg-amber-400 text-white px-3 py-1 rounded-full border-2 border-white shadow-lg flex items-center gap-1 animate-in zoom-in delay-300">
+              <Star size={12} fill="currentColor" />
+              <span className="text-xs font-black">{currentPoints}</span>
+            </div>
           </div>
           <div>
             <h1 className="text-3xl font-black text-gray-800 tracking-tight">Olá, Helena! 🌟</h1>
-            <p className="text-gray-500 font-bold">Pronta para a tua próxima missão?</p>
+            <p className="text-gray-500 font-bold flex items-center gap-1.5">
+              <Trophy size={16} className="text-indigo-400" />
+              Nível {currentPoints < 1000 ? 'Bronze' : currentPoints < 5000 ? 'Prata' : 'Ouro'}
+            </p>
           </div>
         </div>
         
