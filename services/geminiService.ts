@@ -1,8 +1,7 @@
 
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Question, Subject } from "../types";
 
-// Função para validar se a imagem é legível ANTES de guardar a ficha
 export const validateWorksheetImage = async (base64Image: string): Promise<{
   isValid: boolean;
   topic?: string;
@@ -17,7 +16,7 @@ export const validateWorksheetImage = async (base64Image: string): Promise<{
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: dataOnly } },
-          { text: "Analisa esta imagem de uma ficha escolar do 2º ano em Portugal. Identifica se o texto é legível o suficiente para criar exercícios. Responde APENAS em JSON: {\"isValid\": boolean, \"topic\": string, \"feedback\": string}. Se não conseguires ler nada, isValid deve ser false." }
+          { text: "Analisa esta imagem de uma ficha escolar do 2º ano. É legível? Responde apenas JSON: {\"isValid\": boolean, \"topic\": \"string\", \"feedback\": \"string\"}" }
         ]
       },
       config: { 
@@ -27,13 +26,10 @@ export const validateWorksheetImage = async (base64Image: string): Promise<{
     });
 
     const text = response.text || '{}';
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanJson);
+    return JSON.parse(text);
   } catch (e: any) {
-    if (e.message?.includes("entity was not found")) {
-      return { isValid: false, feedback: "Acesso à API expirado. Por favor, reinicie." };
-    }
-    return { isValid: false, feedback: "O robô não conseguiu ler bem a foto. Tenta tirar com mais luz!" };
+    console.error("Erro na validação:", e);
+    return { isValid: false, feedback: "Erro de ligação ao robô sabichão." };
   }
 };
 
@@ -69,59 +65,26 @@ export const generateQuestionsFromImages = async (
     inlineData: { mimeType: "image/jpeg", data: img.includes(',') ? img.split(',')[1] : img }
   }));
 
-  const subjectFocus = subject === Subject.ALL ? "vários temas (Matemática, Português, Estudo do Meio)" : subject;
-
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           ...imageParts,
-          { text: `CONTEXTO: Aluna do 2º ano (7-8 anos) em Portugal. TEMA: ${subjectFocus}.
-          TAREFA: Analisa as imagens e cria 5 exercícios NOVOS e DIVERTIDOS.
-          ESTILO: Usa o nome da Helena às vezes. Sê muito carinhoso.
-          REGRAS: Para 'word-ordering', em 'options' coloca as palavras misturadas.` }
+          { text: `Cria 5 exercícios para o 2º ano sobre ${subject}. Usa o nome Helena.` }
         ]
       },
       config: {
-        systemInstruction: "És o melhor professor primário do mundo. Devolves sempre JSON.",
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.7
       }
     });
 
     const text = response.text || '{"questions": []}';
-    const result = JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
-    
-    if (!result.questions || result.questions.length === 0) {
-      return getFallbackQuestions(subject);
-    }
-
-    return result.questions.map((q: any) => ({
-      ...q,
-      id: Math.random().toString(36).substr(2, 9),
-      complexity: q.complexity || 2
-    }));
+    const result = JSON.parse(text);
+    return result.questions.map((q: any) => ({ ...q, id: Math.random().toString(36).substr(2, 9) }));
   } catch (error) {
-    console.error("Erro Gemini:", error);
-    return getFallbackQuestions(subject);
+    console.error("Erro ao gerar perguntas:", error);
+    return [];
   }
-};
-
-const getFallbackQuestions = (subject: Subject): Question[] => {
-  const themes: Record<string, any[]> = {
-    [Subject.MATH]: [
-      { type: 'text', question: 'Quanto é 20 + 30?', correctAnswer: '50', explanation: '2 dezenas + 3 dezenas = 5 dezenas!', complexity: 1 },
-      { type: 'multiple-choice', question: 'Qual o dobro de 10?', options: ['20', '30', '40'], correctAnswer: '20', explanation: 'Dobro é 10 + 10.', complexity: 1 }
-    ],
-    [Subject.PORTUGUESE]: [
-      { type: 'text', question: 'Qual é o contrário de "Grande"?', correctAnswer: 'Pequeno', explanation: 'O oposto de algo muito grande é algo muito pequeno!', complexity: 1 }
-    ],
-    'default': [
-      { type: 'multiple-choice', question: 'Como se chama a nossa app?', options: ['Estrelas do Conhecimento', 'Escola Feliz', 'Robô Sabichão'], correctAnswer: 'Estrelas do Conhecimento', explanation: 'Exatamente!', complexity: 1 }
-    ]
-  };
-  const selected = themes[subject] || themes['default'];
-  return selected.map(q => ({ ...q, id: 'fb-' + Math.random().toString(36).substr(2, 5) }));
 };
