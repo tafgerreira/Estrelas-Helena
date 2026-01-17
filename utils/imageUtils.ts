@@ -1,4 +1,5 @@
-export const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+
+export const resizeImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = base64Str;
@@ -27,9 +28,13 @@ export const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800):
         return;
       }
 
+      // Melhorar a nitidez da imagem no canvas
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       ctx.drawImage(img, 0, 0, width, height);
-      // Qualidade 0.5 para garantir que as fichas ocupam o mínimo de espaço possível
-      resolve(canvas.toDataURL('image/jpeg', 0.5));
+      // Qualidade 0.8 para manter nitidez essencial para OCR (leitura de texto)
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
     };
     img.onerror = (e) => reject(e);
   });
@@ -48,7 +53,7 @@ export const getStorageUsage = () => {
   }
   
   const sizeMB = total / (1024 * 1024);
-  const limitMB = 5; // Limite padrão do localStorage na maioria dos browsers
+  const limitMB = 5; 
   const percentage = Math.min(Math.round((sizeMB / limitMB) * 100), 100);
   
   return {
