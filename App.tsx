@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Subject, UserStats, Question, Prize, Worksheet, SubjectMetrics } from './types';
 import { INITIAL_PRIZES } from './constants';
 import Dashboard from './components/Dashboard';
@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'online' | 'error'>('offline');
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const ADMIN_PASSWORD = '167356';
   
@@ -58,34 +59,37 @@ const App: React.FC = () => {
   const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
-  // Inicialização: Prioridade Nuvem -> Fallback Local
+  // Inicialização: Prioridade absoluta à Nuvem
   const initData = async () => {
     setCloudStatus('syncing');
     
     try {
+      // 1. Tentar sempre a nuvem primeiro
       const cloudData = isSupabaseConfigured ? await loadFromCloud() : null;
       
-      if (cloudData) {
-        console.log("Dados carregados da Nuvem (Prioridade)");
+      if (cloudData && cloudData.stats) {
+        console.log("Sincronização: Dados da Nuvem carregados com sucesso.");
         setStats({ ...defaultStats, ...cloudData.stats });
         setPrizes(cloudData.prizes || INITIAL_PRIZES);
         setWorksheets(cloudData.worksheets || []);
         setCloudStatus('online');
         
-        // Limpar LocalStorage após sucesso da Nuvem para libertar espaço
+        // LIMPEZA: Como temos dados na nuvem, removemos lixo do telemóvel
         localStorage.removeItem('estudos_worksheets'); 
         localStorage.removeItem('estudos_prizes');
-        // Mantemos stats no local apenas como cache rápida de UI
         localStorage.setItem('estudos_stats', JSON.stringify(cloudData.stats));
       } else {
-        console.log("Nuvem indisponível, a carregar do LocalStorage");
+        // 2. Fallback para LocalStorage apenas se nuvem falhar ou estiver vazia
+        console.log("Sincronização: Nuvem vazia ou offline. A usar armazenamento local.");
         loadFromLocalStorage();
         setCloudStatus(isSupabaseConfigured ? 'error' : 'offline');
       }
     } catch (e) {
-      console.error("Erro na inicialização:", e);
+      console.error("Erro crítico na sincronização inicial:", e);
       loadFromLocalStorage();
       setCloudStatus('error');
+    } finally {
+      setIsLoaded(true); // Marca como pronto para permitir gravações futuras
     }
   };
 
@@ -99,7 +103,7 @@ const App: React.FC = () => {
       if (savedPrizes) setPrizes(JSON.parse(savedPrizes));
       if (savedWorksheets) setWorksheets(JSON.parse(savedWorksheets));
     } catch (e) {
-      console.warn("Erro ao ler localStorage:", e);
+      console.warn("Erro ao ler LocalStorage:", e);
     }
   };
 
@@ -107,11 +111,12 @@ const App: React.FC = () => {
     initData();
   }, []);
 
-  // Sincronização Inteligente
+  // Sincronização Inteligente: Só grava se a app já tiver terminado o arranque
   useEffect(() => {
+    if (!isLoaded) return;
+
     const sync = async () => {
       if (!isSupabaseConfigured) {
-        // Se não há nuvem, somos obrigados a usar o LocalStorage
         localStorage.setItem('estudos_stats', JSON.stringify(stats));
         localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
         localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
@@ -123,26 +128,26 @@ const App: React.FC = () => {
 
       if (success) {
         setCloudStatus('online');
-        // LIMPEZA CRÍTICA: Se gravou na nuvem, removemos as imagens pesadas do telemóvel
+        // LIMPEZA PÓS-SYNC: Limpa imagens pesadas do telemóvel para evitar erros de quota
         localStorage.removeItem('estudos_worksheets');
         localStorage.removeItem('estudos_prizes');
-        // Guardamos apenas o progresso numérico (leve) para o arranque ser instantâneo
+        // Mantém apenas os stats leves como cache
         localStorage.setItem('estudos_stats', JSON.stringify(stats));
       } else {
         setCloudStatus('error');
-        // FALLBACK: Se falhou a nuvem, guardamos no local para não perder o trabalho
+        // Se a nuvem falhou agora, guarda localmente por precaução
         try {
           localStorage.setItem('estudos_stats', JSON.stringify(stats));
           localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
         } catch (e) {
-          console.error("LocalStorage cheio e Nuvem falhou!");
+          console.error("Quota do telemóvel excedida e Nuvem falhou!");
         }
       }
     };
 
-    const timeoutId = setTimeout(sync, 2000); // Debounce de 2s para poupar bateria/dados
+    const timeoutId = setTimeout(sync, 1500); 
     return () => clearTimeout(timeoutId);
-  }, [stats, prizes, worksheets]);
+  }, [stats, prizes, worksheets, isLoaded]);
 
   const handleImportAllData = (encodedData: string) => {
     try {
@@ -203,6 +208,7 @@ const App: React.FC = () => {
       <div className="fixed bottom-4 right-4 z-50">
         <button 
           onClick={initData}
+          title="Forçar Sincronização"
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-xl backdrop-blur-md border-2 transition-all ${
           cloudStatus === 'online' ? 'bg-green-100 text-green-600 border-green-300' :
           cloudStatus === 'syncing' ? 'bg-blue-100 text-blue-600 border-blue-300 animate-pulse' :
