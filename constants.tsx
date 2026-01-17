@@ -38,49 +38,36 @@ export const INITIAL_PRIZES = [
   { id: '4', name: 'Brinquedo Novo', cost: 50, image: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?q=80&w=400&h=400&auto=format&fit=crop', unlocked: false }
 ];
 
-// Reversão para v7 que é a mais robusta para estes avatares
-const createMonsterFace = (id: string, seed: string, points: number, bg: string = 'b6e3f4') => ({
+// Gerador de Monstros baseado na imagem de referência do utilizador
+// Usamos seeds específicas no estilo 'big-smile' que geram formas orgânicas e coloridas
+const createMonster = (id: string, seed: string, points: number, bgColor: string) => ({
   id,
-  url: `https://api.dicebear.com/7.x/big-smile/svg?seed=${seed}&backgroundColor=${bg.replace('#', '')}`,
+  url: `https://api.dicebear.com/7.x/big-smile/svg?seed=${seed}&backgroundColor=${bgColor.replace('#','')}`,
   pointsRequired: points
 });
 
 export const AVATAR_COLLECTION: Avatar[] = [
-  // --- TIER 1: MONSTRINHOS INICIAIS ---
-  createMonsterFace('av-1', 'Felix', 0, 'b6e3f4'), 
-  createMonsterFace('av-2', 'Aneka', 0, 'dcfce7'),
-  createMonsterFace('av-3', 'Milo', 0, 'fdf2f8'),
-  createMonsterFace('av-4', 'Casper', 50, 'fef9c3'),
-  createMonsterFace('av-5', 'Luna', 100, 'f5f3ff'),
-  createMonsterFace('av-6', 'Oliver', 150, 'ffedd5'),
-  createMonsterFace('av-7', 'Bella', 200, 'ccfbf1'),
-  createMonsterFace('av-8', 'Jasper', 250, 'fee2e2'),
+  // Monstros Amarelos/Laranja (Iniciais)
+  createMonster('av-1', 'Buster', 0, 'FFD700'), // Amarelo 3 olhos
+  createMonster('av-2', 'Toby', 0, 'FF8C00'),   // Laranja com chifres
+  createMonster('av-3', 'Milo', 0, 'fdf2f8'),   // Rosa pontos brancos
+  
+  // Monstros Coloridos (Tier 1)
+  createMonster('av-4', 'Casper', 50, 'FF5733'), // Vermelho Ciclope
+  createMonster('av-5', 'Luna', 100, '2ECC71'),  // Verde chifres
+  createMonster('av-6', 'Oliver', 150, '3498DB'), // Azul riscas
+  createMonster('av-7', 'Bella', 200, 'F1C40F'),  // Amarelo 6 olhos
+  createMonster('av-8', 'Jasper', 250, '1ABC9C'), // Verde bigode
 
-  // --- TIER 2: MONSTROS TRAQUINAS ---
-  createMonsterFace('av-9', 'Toby', 300, '3b82f6'),
-  createMonsterFace('av-10', 'Zoe', 350, '84cc16'),
-  createMonsterFace('av-11', 'Coco', 400, 'ec4899'),
-  createMonsterFace('av-12', 'Buster', 450, 'a855f7'),
-  createMonsterFace('av-13', 'Daisy', 500, 'eab308'),
-  createMonsterFace('av-14', 'Simba', 600, '06b6d4'),
-  createMonsterFace('av-15', 'Nala', 700, 'ef4444'),
-  createMonsterFace('av-16', 'George', 800, '6366f1'),
-  createMonsterFace('av-17', 'Gracie', 900, '10b981'),
-
-  // --- TIER 3: MONSTROS LENDÁRIOS ---
-  createMonsterFace('av-18', 'Vampire', 1000, '4c1d95'),
-  createMonsterFace('av-19', 'Dragon', 1200, '064e3b'),
-  createMonsterFace('av-20', 'Goldie', 1400, 'fbbf24'),
-  createMonsterFace('av-21', 'Candy', 1600, 'db2777'),
-  createMonsterFace('av-22', 'Cloud', 1800, '0ea5e9'),
-  createMonsterFace('av-23', 'Magma', 2000, '991b1b'),
-  createMonsterFace('av-24', 'Ghost', 2500, 'f8fafc'),
-  createMonsterFace('av-25', 'Shadow', 3000, '1e293b'),
-  createMonsterFace('av-26', 'Neon', 4000, '22c55e'),
-
-  // --- TIER MESTRE ---
-  createMonsterFace('av-27', 'Super', 5000, '1d4ed8'),
-  createMonsterFace('av-28', 'Queen', 7500, 'be185d'),
-  createMonsterFace('av-29', 'King', 10000, 'ca8a04'),
-  createMonsterFace('av-30', 'Final', 25000, '000000'),
+  // Monstros Raros (Tier 2)
+  createMonster('av-9', 'Snooky', 300, '9B59B6'), 
+  createMonster('av-10', 'Zilla', 400, 'E67E22'),
+  createMonster('av-11', 'Grumpy', 500, '34495E'),
+  createMonster('av-12', 'Spark', 600, 'E74C3C'),
+  createMonster('av-13', 'Glow', 700, 'F39C12'),
+  createMonster('av-14', 'Mist', 800, 'BDC3C7'),
+  createMonster('av-15', 'Fluff', 1000, 'D35400'),
+  createMonster('av-16', 'Shadow', 1500, '2C3E50'),
+  createMonster('av-17', 'Goldie', 2000, 'FFD700'),
+  createMonster('av-18', 'Legend', 5000, '000000'),
 ];

@@ -48,7 +48,7 @@ const App: React.FC = () => {
     subjectStats: initialSubjectStats,
     recentWorksheetIds: [],
     doubleCreditDays: [0, 6],
-    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Felix&backgroundColor=b6e3f4',
+    selectedAvatarUrl: 'https://api.dicebear.com/7.x/big-smile/svg?seed=Buster&backgroundColor=FFD700',
     unlockedAvatarIds: ['av-1', 'av-2', 'av-3']
   };
 
@@ -63,24 +63,22 @@ const App: React.FC = () => {
     setCloudStatus('syncing');
     
     try {
-      // 1. Carregar local primeiro como segurança imediata
       const localStats = localStorage.getItem('estudos_stats');
       const localPrizes = localStorage.getItem('estudos_prizes');
       const localWorksheets = localStorage.getItem('estudos_worksheets');
 
+      // Carregar local primeiro para interface imediata
       if (localStats) setStats(prev => ({ ...defaultStats, ...JSON.parse(localStats) }));
       if (localPrizes) setPrizes(JSON.parse(localPrizes));
       if (localWorksheets) setWorksheets(JSON.parse(localWorksheets));
 
-      // 2. Tentar Nuvem
+      // Tentar Nuvem
       const cloudData = isSupabaseConfigured ? await loadFromCloud() : null;
       
       if (cloudData) {
-        // Só sobrepomos o local se a nuvem tiver dados válidos e não vazios
         if (cloudData.stats) setStats(prev => ({ ...prev, ...cloudData.stats }));
-        if (cloudData.prizes && cloudData.prizes.length > 0) setPrizes(cloudData.prizes);
-        if (cloudData.worksheets && cloudData.worksheets.length > 0) setWorksheets(cloudData.worksheets);
-        
+        if (cloudData.prizes?.length) setPrizes(cloudData.prizes);
+        if (cloudData.worksheets?.length) setWorksheets(cloudData.worksheets);
         setCloudStatus('online');
       } else {
         setCloudStatus(isSupabaseConfigured ? 'error' : 'offline');
@@ -88,7 +86,8 @@ const App: React.FC = () => {
     } catch (e) {
       setCloudStatus('error');
     } finally {
-      setIsLoaded(true); 
+      // Pequeno atraso para garantir que os estados React estão estáveis antes de permitir sync
+      setTimeout(() => setIsLoaded(true), 500);
     }
   };
 
@@ -99,22 +98,21 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Guardar SEMPRE no LocalStorage como backup de segurança
-    localStorage.setItem('estudos_stats', JSON.stringify(stats));
-    localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
-    localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
+    const sync = async () => {
+      // Guardar localmente
+      localStorage.setItem('estudos_stats', JSON.stringify(stats));
+      localStorage.setItem('estudos_prizes', JSON.stringify(prizes));
+      localStorage.setItem('estudos_worksheets', JSON.stringify(worksheets));
 
-    // Sincronizar com Nuvem se configurado
-    if (isSupabaseConfigured) {
-      const sync = async () => {
+      if (isSupabaseConfigured) {
         setCloudStatus('syncing');
         const success = await saveToCloud({ stats, prizes, worksheets });
         setCloudStatus(success ? 'online' : 'error');
-      };
+      }
+    };
 
-      const timeoutId = setTimeout(sync, 2000); 
-      return () => clearTimeout(timeoutId);
-    }
+    const timeoutId = setTimeout(sync, 2000); 
+    return () => clearTimeout(timeoutId);
   }, [stats, prizes, worksheets, isLoaded]);
 
   const handleImportAllData = (encodedData: string) => {
@@ -172,7 +170,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f9ff] pb-12">
+    <div className="min-h-screen bg-[#f0f9ff] pb-12 text-[#1e293b]">
       <div className="fixed bottom-4 right-4 z-50">
         <button 
           onClick={initData}
@@ -194,6 +192,13 @@ const App: React.FC = () => {
           </span>
         </button>
       </div>
+
+      {!isLoaded && (
+        <div className="fixed inset-0 z-[100] bg-[#f0f9ff] flex flex-col items-center justify-center">
+          <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+          <p className="font-black text-blue-600 animate-pulse uppercase tracking-widest text-xs">A carregar o teu mundo...</p>
+        </div>
+      )}
 
       {view === 'dashboard' && (
         <Dashboard 
