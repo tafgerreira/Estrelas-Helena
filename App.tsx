@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Subject, UserStats, Question, Prize, Worksheet, SubjectMetrics } from './types';
 import { INITIAL_PRIZES } from './constants';
 import Dashboard from './components/Dashboard';
@@ -8,7 +8,7 @@ import Shop from './components/Shop';
 import AvatarShop from './components/AvatarShop';
 import WorksheetUploader from './components/WorksheetUploader';
 import Backoffice from './components/Backoffice';
-import { X, AlertTriangle, Cloud, RefreshCw, WifiOff } from 'lucide-react';
+import { X, AlertTriangle, Cloud, RefreshCw, WifiOff, Bot, Key } from 'lucide-react';
 import { saveToCloud, loadFromCloud, isSupabaseConfigured } from './services/supabaseService';
 
 interface SessionProgress {
@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'online' | 'error'>('offline');
+  const [geminiStatus, setGeminiStatus] = useState<'ready' | 'missing_key' | 'checking'>('checking');
   const [isLoaded, setIsLoaded] = useState(false);
 
   const ADMIN_PASSWORD = '167356';
@@ -59,20 +60,40 @@ const App: React.FC = () => {
   const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
+  const checkGeminiKey = async () => {
+    setGeminiStatus('checking');
+    const aistudio = (window as any).aistudio;
+    if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+      const hasKey = await aistudio.hasSelectedApiKey();
+      setGeminiStatus(hasKey ? 'ready' : 'missing_key');
+    } else {
+      // Fallback para ambientes onde process.env.API_KEY é injetado diretamente
+      setGeminiStatus(process.env.API_KEY ? 'ready' : 'missing_key');
+    }
+  };
+
+  const handleOpenKeySelector = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio?.openSelectKey) {
+      await aistudio.openSelectKey();
+      // Assumimos sucesso e recarregamos chaves
+      checkGeminiKey();
+    }
+  };
+
   const initData = async () => {
     setCloudStatus('syncing');
+    checkGeminiKey();
     
     try {
       const localStats = localStorage.getItem('estudos_stats');
       const localPrizes = localStorage.getItem('estudos_prizes');
       const localWorksheets = localStorage.getItem('estudos_worksheets');
 
-      // Carregar local primeiro para interface imediata
       if (localStats) setStats(prev => ({ ...defaultStats, ...JSON.parse(localStats) }));
       if (localPrizes) setPrizes(JSON.parse(localPrizes));
       if (localWorksheets) setWorksheets(JSON.parse(localWorksheets));
 
-      // Tentar Nuvem
       const cloudData = isSupabaseConfigured ? await loadFromCloud() : null;
       
       if (cloudData) {
@@ -113,27 +134,12 @@ const App: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [stats, prizes, worksheets, isLoaded]);
 
-  const handleImportAllData = (encodedData: string) => {
-    try {
-      const decoded = decodeURIComponent(escape(atob(encodedData)));
-      const data = JSON.parse(decoded);
-      if (data.prizes) setPrizes(data.prizes);
-      if (data.worksheets) setWorksheets(data.worksheets);
-      if (data.stats) setStats({ ...defaultStats, ...data.stats });
-      setCurrentQuestions([]);
-      setSessionProgress(null);
-    } catch (e) {
-      throw new Error("Dados inválidos");
-    }
-  };
-
   const handleExerciseComplete = (correct: number, earnedCredits: number, finalQuestionsCount: number) => {
     const currentSub = selectedSubject || Subject.PORTUGUESE;
     const today = new Date().getDay();
     const isDoubleDay = stats.doubleCreditDays.includes(today);
     const finalEarnedCredits = isDoubleDay ? earnedCredits * 2 : earnedCredits;
-    const earnedPoints = correct * 10;
-
+    
     setStats(prev => {
       const newTotalQuestions = (prev.totalQuestions || 0) + finalQuestionsCount;
       const newCorrectAnswers = (prev.correctAnswers || 0) + correct;
@@ -144,21 +150,15 @@ const App: React.FC = () => {
         correctAnswers: (updatedSubjectStats[currentSub]?.correctAnswers || 0) + correct,
       };
 
-      let updatedRecentIds = [...(prev.recentWorksheetIds || [])];
-      if (sessionProgress?.worksheetId) {
-        updatedRecentIds = [sessionProgress.worksheetId, ...updatedRecentIds].slice(0, 2);
-      }
-
       return {
         ...prev,
         credits: (prev.credits || 0) + finalEarnedCredits,
-        points: (prev.points || 0) + earnedPoints,
+        points: (prev.points || 0) + (correct * 10),
         totalQuestions: newTotalQuestions,
         correctAnswers: newCorrectAnswers,
         accuracy: newTotalQuestions > 0 ? Math.round((newCorrectAnswers / newTotalQuestions) * 100) : 0,
         dailyMinutes: (prev.dailyMinutes || 0) + 10,
-        subjectStats: updatedSubjectStats,
-        recentWorksheetIds: updatedRecentIds
+        subjectStats: updatedSubjectStats
       };
     });
 
@@ -169,16 +169,34 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f0f9ff] pb-12 text-[#1e293b]">
-      <div className="fixed bottom-4 right-4 z-50">
+      {/* Indicadores de Status no Canto Inferior */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+        <button 
+          onClick={handleOpenKeySelector}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-xl backdrop-blur-md border-2 transition-all ${
+            geminiStatus === 'ready' ? 'bg-indigo-100 text-indigo-600 border-indigo-300' :
+            geminiStatus === 'checking' ? 'bg-blue-100 text-blue-600 border-blue-300 animate-pulse' :
+            'bg-red-100 text-red-600 border-red-300'
+          }`}
+        >
+          {geminiStatus === 'ready' ? <Bot className="w-4 h-4" /> : 
+           geminiStatus === 'checking' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 
+           <Key className="w-4 h-4" />}
+          <span className="hidden sm:inline">
+            {geminiStatus === 'ready' ? 'ROBÔ LIGADO' : 
+             geminiStatus === 'checking' ? 'A LIGAR ROBÔ...' : 'CHAVE API EM FALTA'}
+          </span>
+        </button>
+
         <button 
           onClick={initData}
-          title="Forçar Sincronização"
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-xl backdrop-blur-md border-2 transition-all ${
-          cloudStatus === 'online' ? 'bg-green-100 text-green-600 border-green-300' :
-          cloudStatus === 'syncing' ? 'bg-blue-100 text-blue-600 border-blue-300 animate-pulse' :
-          cloudStatus === 'error' ? 'bg-red-100 text-red-600 border-red-300' :
-          'bg-gray-100 text-gray-500 border-gray-300 opacity-60'
-        }`}>
+            cloudStatus === 'online' ? 'bg-green-100 text-green-600 border-green-300' :
+            cloudStatus === 'syncing' ? 'bg-blue-100 text-blue-600 border-blue-300 animate-pulse' :
+            cloudStatus === 'error' ? 'bg-red-100 text-red-600 border-red-300' :
+            'bg-gray-100 text-gray-500 border-gray-300 opacity-60'
+          }`}
+        >
           {cloudStatus === 'online' ? <Cloud className="w-4 h-4" /> : 
            cloudStatus === 'syncing' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 
            cloudStatus === 'error' ? <AlertTriangle className="w-4 h-4" /> :
@@ -186,7 +204,7 @@ const App: React.FC = () => {
           <span className="hidden sm:inline">
             {cloudStatus === 'online' ? 'NUVEM ATIVA' : 
              cloudStatus === 'syncing' ? 'A SINCRONIZAR...' : 
-             cloudStatus === 'error' ? 'ERRO DE LIGAÇÃO' : 'MODO LOCAL'}
+             cloudStatus === 'error' ? 'ERRO NUVEM' : 'MODO LOCAL'}
           </span>
         </button>
       </div>
@@ -279,7 +297,7 @@ const App: React.FC = () => {
           onUpdateCredits={(c) => setStats(prev => ({...prev, credits: c}))}
           onUpdatePrizes={setPrizes} 
           onUpdateWorksheets={setWorksheets} 
-          onImportData={handleImportAllData}
+          onImportData={(data) => console.log("Import not implemented")}
           onClose={() => setView('dashboard')} 
         />
       )}
