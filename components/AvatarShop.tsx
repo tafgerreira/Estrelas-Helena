@@ -36,9 +36,7 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
             <Trophy className="text-white w-8 h-8" />
             <div>
               <p className="text-[10px] font-black text-indigo-100 uppercase tracking-widest leading-none">Nível</p>
-              <p className="text-3xl font-black text-white leading-tight">
-                {currentPoints < 1000 ? 'Bronze' : currentPoints < 5000 ? 'Prata' : 'Ouro'}
-              </p>
+              <p className="text-3xl font-black text-white leading-tight">{currentPoints < 1000 ? 'Bronze' : currentPoints < 5000 ? 'Prata' : 'Ouro'}</p>
             </div>
           </div>
         </div>
@@ -60,26 +58,23 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
           return (
             <div 
               key={avatar.id}
-              className={`relative group bg-white rounded-[45px] p-5 border-4 transition-all duration-500 ${
-                isSelected ? 'border-blue-500 shadow-[0_20px_50px_rgba(59,130,246,0.3)] scale-110 z-10' : 
-                isUnlocked ? 'border-green-100 hover:border-blue-200 hover:shadow-xl hover:-translate-y-2' : 'border-gray-50 opacity-90'
+              className={`relative group bg-white rounded-[45px] p-5 border-4 transition-all duration-300 ${
+                isSelected ? 'border-blue-500 shadow-xl scale-105 z-10' : 
+                isUnlocked ? 'border-green-100 hover:border-blue-200 hover:-translate-y-1' : 'border-gray-50 opacity-90'
               }`}
             >
-              <div className={`relative aspect-square rounded-[35px] overflow-hidden mb-5 border-2 border-white shadow-inner transition-colors bg-gray-100 ${
-                isSelected ? 'bg-gradient-to-br from-blue-50 to-blue-100' :
-                isUnlocked ? 'bg-gradient-to-br from-green-50 to-emerald-50' : 'bg-gray-50'
+              <div className={`relative aspect-square rounded-[35px] overflow-hidden mb-5 border-2 border-white shadow-inner transition-colors bg-white ${
+                isSelected ? 'bg-blue-50' : isUnlocked ? 'bg-green-50' : 'bg-gray-50'
               }`}>
-                {/* Fallback Loader */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-20">
+                {/* Loader Placeholder */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-10">
                    <Loader2 className="w-8 h-8 animate-spin" />
                 </div>
                 
                 <img 
                   src={avatar.url} 
                   alt="Avatar" 
-                  loading="lazy"
-                  className={`relative w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110 ${!isUnlocked ? 'grayscale brightness-75 opacity-40 blur-[2px]' : 'drop-shadow-md'}`} 
-                  onLoad={(e) => (e.currentTarget.parentElement?.classList.remove('bg-gray-100'))}
+                  className={`relative w-full h-full object-contain p-2 transition-all duration-500 ${!isUnlocked ? 'grayscale brightness-75 opacity-30' : 'drop-shadow-md'}`} 
                 />
                 
                 {!isUnlocked && (
@@ -100,7 +95,7 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
 
               <div className="text-center">
                 {isSelected ? (
-                  <div className="flex items-center justify-center gap-1 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">
+                  <div className="flex items-center justify-center gap-1 text-[10px] font-black text-blue-600 uppercase tracking-widest">
                     <Sparkles size={12} /> Selecionado
                   </div>
                 ) : isUnlocked ? (
@@ -116,7 +111,6 @@ const AvatarShop: React.FC<AvatarShopProps> = ({ stats, onSelect, onUnlock, onCl
                       <Star size={16} fill="currentColor" />
                       <span className="text-lg">{avatar.pointsRequired}</span>
                     </div>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Estrelas Necessárias</p>
                   </div>
                 )}
               </div>
