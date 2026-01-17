@@ -2,55 +2,59 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question, Subject } from "../types";
 
-export const validateWorksheetImage = async (base64Image: string): Promise<{
-  isValid: boolean;
-  topic?: string;
-  feedback: string;
-  errorType?: 'api_key' | 'connection' | 'content';
+/**
+ * FASE 1: O LEITOR
+ * Realiza OCR de alta precisão e análise de contexto pedagógico.
+ */
+export const readSchoolWorksheet = async (base64Images: string[]): Promise<{
+  rawContent: string;
+  detectedSubject: string;
+  confidence: number;
+  isLegible: boolean;
 }> => {
-  if (!process.env.API_KEY) {
-    return { isValid: false, feedback: "API Key em falta", errorType: 'api_key' };
-  }
+  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const dataOnly = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+  const imageParts = base64Images.map(img => ({
+    inlineData: { mimeType: "image/jpeg", data: img.includes(',') ? img.split(',')[1] : img }
+  }));
 
   try {
-    // Para validação rápida, o Flash é ideal
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          { inlineData: { mimeType: "image/jpeg", data: dataOnly } },
-          { text: "És um assistente de professores. Analisa esta imagem de uma ficha escolar do 2º ano. É legível o suficiente para extrair exercícios? Responde apenas em formato JSON: {\"isValid\": boolean, \"topic\": \"string\", \"feedback\": \"string\"}. Se for ilegível, explica porquê no feedback (ex: muito escuro, tremido)." }
+          ...imageParts,
+          { text: `CONTEXTO: Ficha escolar do 2º ano (Portugal). 
+          TAREFA: Transcreve o conteúdo principal destas imagens. 
+          Identifica: 1. O tema exato (ex: verbos, somas, animais). 2. Os exercícios propostos. 
+          Ignora: Sombras, mãos na foto, ou manchas. 
+          Responde em JSON: {"rawContent": "resumo do que está escrito", "detectedSubject": "tema", "confidence": 0-1, "isLegible": boolean}` }
         ]
       },
       config: { 
         responseMimeType: "application/json",
-        temperature: 0.1
+        thinkingConfig: { thinkingBudget: 16000 } // Permite ao modelo "olhar" com mais atenção
       }
     });
 
-    const text = response.text || '{}';
-    const parsed = JSON.parse(text);
-    return { ...parsed, errorType: undefined };
-  } catch (e: any) {
-    console.error("Erro na validação Gemini:", e);
-    const msg = e.message || "";
-    if (msg.includes("entity was not found") || msg.includes("API key")) {
-      return { isValid: false, feedback: "API Key inválida ou expirada", errorType: 'api_key' };
-    }
-    return { isValid: false, feedback: "Erro ao ligar ao Robô Sabichão", errorType: 'connection' };
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    console.error("Erro na Fase 1 (Leitura):", error);
+    throw error;
   }
 };
 
-export const generateQuestionsFromImages = async (
-  base64Images: string[], 
-  subject: Subject
+/**
+ * FASE 2: O CRIADOR
+ * Converte o conteúdo bruto em desafios interativos para a Helena.
+ */
+export const convertContentToHelenaChallenges = async (
+  contentData: { rawContent: string, detectedSubject: string },
+  targetSubject: Subject
 ): Promise<Question[]> => {
   if (!process.env.API_KEY) return [];
   
-  // Usamos o Pro para a geração de perguntas pois exige OCR de alta precisão e raciocínio pedagógico
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const responseSchema = {
@@ -76,53 +80,74 @@ export const generateQuestionsFromImages = async (
     required: ["questions"]
   };
 
-  const imageParts = base64Images.slice(0, 5).map(img => ({
-    inlineData: { mimeType: "image/jpeg", data: img.includes(',') ? img.split(',')[1] : img }
-  }));
-
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: {
-        parts: [
-          ...imageParts,
-          { text: `AGE COMO: Professor do 1º Ciclo em Portugal (2º ano). 
-          TAREFA: Analisa as imagens fornecidas (fichas escolares) e cria 5 exercícios digitais interativos baseados no conteúdo detetado.
-          CONTEXTO: A aluna chama-se Helena. Os exercícios devem ser divertidos e motivadores.
-          
-          DIRETRIZES DE OCR E QUALIDADE:
-          1. Ignora sombras, dobras de papel ou manchas. Foca no texto e imagens pedagógicas.
-          2. Se o texto estiver manuscrito, faz o teu melhor para transcrever corretamente.
-          3. Se o tema for ${subject}, foca nos conceitos curriculares dessa área em Portugal.
-          
-          TIPOS DE EXERCÍCIOS:
-          - multiple-choice: Pergunta com 4 opções.
-          - text: Pergunta de resposta aberta curta.
-          - word-ordering: Frase para ordenar (coloca as palavras baralhadas em 'options').
-          
-          Explica sempre o 'porquê' da resposta correta na 'explanation' de forma carinhosa para a Helena.` }
-        ]
-      },
+      model: 'gemini-3-flash-preview',
+      contents: `Com base neste conteúdo de uma ficha escolar: "${contentData.rawContent}" (Tema: ${contentData.detectedSubject}).
+      Cria 5 desafios divertidos para a Helena (2º ano). 
+      Se a ficha for sobre ${targetSubject}, foca nisso. 
+      Usa linguagem motivadora. No tipo 'word-ordering', as 'options' devem ser as palavras da frase baralhadas.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.4, // Menor temperatura para ser mais fiel ao conteúdo da ficha
-        thinkingConfig: { thinkingBudget: 0 }
+        temperature: 0.7
       }
     });
 
-    const text = response.text || '{"questions": []}';
-    const result = JSON.parse(text);
-    
-    // Garantir que todas as perguntas têm ID e limpeza básica
+    const result = JSON.parse(response.text || '{"questions": []}');
     return (result.questions || []).map((q: any) => ({
       ...q,
-      id: Math.random().toString(36).substr(2, 9),
-      complexity: q.complexity || 2
+      id: Math.random().toString(36).substr(2, 9)
     }));
   } catch (error) {
-    console.error("Erro crítico ao gerar perguntas com Gemini Pro:", error);
-    // Fallback silencioso ou retornar vazio para o UI lidar
+    console.error("Erro na Fase 2 (Conversão):", error);
     return [];
+  }
+};
+
+/**
+ * Função unificada que substitui as antigas e implementa o novo pipeline.
+ */
+export const generateQuestionsFromImages = async (
+  base64Images: string[], 
+  subject: Subject
+): Promise<Question[]> => {
+  try {
+    // 1. Ler as imagens com alta precisão
+    const content = await readSchoolWorksheet(base64Images);
+    
+    if (!content.isLegible && content.confidence < 0.3) {
+      throw new Error("A imagem está demasiado difícil de ler. Tira outra foto?");
+    }
+
+    // 2. Converter em perguntas interativas
+    return await convertContentToHelenaChallenges(content, subject);
+  } catch (error) {
+    console.error("Falha no pipeline Gemini:", error);
+    throw error;
+  }
+};
+
+// Mantemos por compatibilidade, mas agora usa o motor novo
+export const validateWorksheetImage = async (base64Image: string): Promise<{
+  isValid: boolean;
+  topic?: string;
+  feedback: string;
+  errorType?: 'api_key' | 'connection' | 'content';
+}> => {
+  try {
+    const result = await readSchoolWorksheet([base64Image]);
+    return {
+      isValid: result.isLegible,
+      topic: result.detectedSubject,
+      feedback: result.isLegible ? "Parece ótimo!" : "O robô está com dificuldade em ler esta página.",
+      errorType: undefined
+    };
+  } catch (e: any) {
+    return { 
+      isValid: false, 
+      feedback: "Erro ao validar.", 
+      errorType: e.message === "API_KEY_MISSING" ? 'api_key' : 'connection' 
+    };
   }
 };
