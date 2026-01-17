@@ -1,6 +1,6 @@
+
 import { createClient } from '@supabase/supabase-js';
 
-// Tenta obter de process.env (Node/Webpack/Vite define) ou import.meta.env (Vite nativo)
 const getEnv = (name: string): string => {
   try {
     return process.env[name] || (import.meta as any).env?.[name] || '';
@@ -18,8 +18,8 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
 
-export const saveToCloud = async (data: { stats: any, prizes: any, worksheets: any }) => {
-  if (!supabase) return;
+export const saveToCloud = async (data: { stats: any, prizes: any, worksheets: any }): Promise<boolean> => {
+  if (!supabase) return false;
   try {
     const { error } = await supabase
       .from('user_data')
@@ -32,9 +32,10 @@ export const saveToCloud = async (data: { stats: any, prizes: any, worksheets: a
       }, { onConflict: 'family_id' });
 
     if (error) throw error;
+    return true;
   } catch (err) {
-    console.error("Cloud save error:", err);
-    throw err;
+    console.error("Erro ao gravar na nuvem:", err);
+    return false;
   }
 };
 
@@ -50,7 +51,7 @@ export const loadFromCloud = async () => {
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error("Cloud load error:", err);
+    console.error("Erro ao carregar da nuvem:", err);
     return null;
   }
 };
