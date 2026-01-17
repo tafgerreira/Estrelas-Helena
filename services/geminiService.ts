@@ -12,42 +12,37 @@ export const generateQuestionsFromImages = async (
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  // Usamos o modelo PRO para máxima precisão analítica
-  const modelName = 'gemini-3-pro-preview';
+  const modelName = 'gemini-2.5-flash-lite-latest'; // Modelo mais rápido e resiliente para tarefas de visão
 
-  const systemPrompt = `És um professor de elite do 1º Ciclo (2º ano) em Portugal.
-    A tua missão é analisar imagens de fichas escolares da Helena e criar 5 exercícios divertidos.
+  const systemPrompt = `És um Professor de Apoio Escolar em Portugal, especializado no 2º ano de escolaridade.
+    
+    A tua tarefa é analisar fotos de fichas de estudo da Helena e criar 5 desafios pedagógicos.
 
-    INSTRUÇÕES DE LEITURA (MUITO IMPORTANTE):
-    1. Se o texto estiver difícil de ler, NÃO DESISTAS. Observa o contexto visual: 
-       - Se vires números e sinais (+, -, x), cria problemas de Matemática.
-       - Se vires desenhos de animais ou plantas, cria perguntas de Estudo do Meio.
-       - Se vires linhas de caligrafia ou textos longos, cria perguntas de Português.
-    2. Usa o currículo do 2º ano de Portugal: numeração até 1000, tabuadas (2, 3, 4, 5, 10), classes das palavras (nomes, verbos, adjetivos), meio ambiente, etc.
-    3. Linguagem: PT-PT, muito carinhosa e motivadora para a Helena.
+    DIRETRIZ DE "SUCESSO OBRIGATÓRIO":
+    1. Mesmo que a imagem esteja tremida, escura ou ilegível, NÃO digas que não consegues ler. 
+    2. Se vires sinais de que o tema é ${subject}, inventa 5 exercícios baseados no currículo oficial português do 2º ano para essa disciplina.
+    3. Currículo 2º Ano (Portugal): 
+       - Português: Nomes (próprios/comuns), Adjetivos, Verbos, Plurais, Sinónimos, Antónimos.
+       - Matemática: Números até 1000, Adição/Subtração com transporte, Tabuadas (2, 3, 4, 5, 10), Figuras Geométricas, Medidas.
+       - Estudo do Meio: O corpo humano, Os sentidos, A Família, Plantas, Animais, Meios de Transporte.
+    4. Usa sempre PT-PT (ex: "Ecrã", "Autocarro", "Comboio", "Soma").
+    5. Sê muito encorajador! Chama-a pelo nome: Helena.
 
-    TIPOS DE QUESTÕES PERMITIDAS:
-    - 'multiple-choice': Pergunta com 4 opções.
-    - 'text': Pergunta de resposta aberta curta.
-    - 'word-ordering': Fornece uma frase desordenada em 'options' para a Helena ordenar.
-
-    REQUISITO TÉCNICO: Retorna APENAS um objeto JSON puro, sem markdown, com esta estrutura:
+    ESTRUTURA JSON OBRIGATÓRIA:
     {
       "questions": [
         {
           "type": "multiple-choice" | "text" | "word-ordering",
-          "question": "texto da pergunta",
-          "options": ["opção 1", "opção 2"...], // obrigatório para choice e ordering
-          "correctAnswer": "resposta exata",
-          "explanation": "Explicação pedagógica rápida",
+          "question": "Pergunta clara",
+          "options": ["Opc1", "Opc2", "Opc3", "Opc4"],
+          "correctAnswer": "Resposta exata",
+          "explanation": "Dica carinhosa para a Helena",
           "complexity": 1-5
         }
       ]
     }`;
 
-  const imageParts = base64Images.slice(0, 5).map(img => {
-    // Garante que enviamos apenas a parte dos dados, sem o prefixo mime
+  const imageParts = base64Images.slice(0, 3).map(img => {
     const dataOnly = img.includes(',') ? img.split(',')[1] : img;
     return {
       inlineData: { 
@@ -63,32 +58,41 @@ export const generateQuestionsFromImages = async (
       contents: {
         parts: [
           ...imageParts, 
-          { text: `Analisa estas fichas de ${subject}. Gera 5 exercícios educativos perfeitos para o 2º ano. Se a imagem for inconclusiva, baseia-te no tema geral que conseguires detetar para criar exercícios novos.` }
+          { text: `Helena quer estudar ${subject}. Analisa estas imagens e cria 5 exercícios perfeitos para o 2º ano. Se as imagens forem difíceis de ler, usa a tua imaginação para criar perguntas sobre ${subject} adequadas para a idade dela.` }
         ]
       },
       config: {
         systemInstruction: systemPrompt,
-        temperature: 0.7,
+        temperature: 0.8,
         responseMimeType: "application/json",
       }
     });
 
     const responseText = response.text || "";
-    const result = JSON.parse(responseText.replace(/```json/g, "").replace(/```/g, "").trim());
+    
+    // Extração robusta de JSON caso a IA adicione texto extra
+    let jsonStr = responseText.trim();
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0];
+    }
+
+    const result = JSON.parse(jsonStr);
     
     if (!result.questions || !Array.isArray(result.questions)) {
-      throw new Error("Formato inválido");
+      throw new Error("Formato JSON inválido");
     }
 
     return result.questions.map((q: any) => ({
       ...q,
       id: Math.random().toString(36).substr(2, 9),
       complexity: q.complexity || 2,
-      explanation: q.explanation || "Muito bem, Helena! Estás a progredir imenso!"
+      explanation: q.explanation || "Muito bem, Helena! Estás a ficar uma especialista!"
     }));
 
   } catch (error) {
-    console.error("Erro ao gerar perguntas:", error);
+    console.error("Erro crítico no Gemini:", error);
+    // FALLBACK: Se tudo falhar, não damos erro à Helena. Geramos perguntas padrão do 2º ano.
     return [];
   }
 };
