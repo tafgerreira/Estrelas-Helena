@@ -12,31 +12,31 @@ export const generateQuestionsFromImages = async (
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = 'gemini-2.5-flash-lite-latest'; // Modelo mais rápido e resiliente para tarefas de visão
+  // Modelo de última geração para melhor visão e raciocínio
+  const modelName = 'gemini-3-flash-preview'; 
 
-  const systemPrompt = `És um Professor de Apoio Escolar em Portugal, especializado no 2º ano de escolaridade.
+  const systemPrompt = `És um Professor de Apoio Escolar em Portugal para o 2º ano.
     
-    A tua tarefa é analisar fotos de fichas de estudo da Helena e criar 5 desafios pedagógicos.
+    A tua missão é criar 5 desafios pedagógicos para a Helena.
+    
+    REGRAS CRÍTICAS DE RESILIÊNCIA:
+    1. Se as imagens estiverem impercetíveis, NÃO dês erro. Cria 5 exercícios genéricos de 2º ano sobre ${subject}.
+    2. Usa o currículo de Portugal (PNL):
+       - Português: Nomes, adjetivos, verbos, antónimos, leitura.
+       - Matemática: Adição/subtração até 1000, tabuadas (2, 3, 4, 5, 10), formas.
+       - Estudo do Meio: Corpo humano, plantas, animais, história local.
+    3. Fala DIRETAMENTE para a Helena de forma carinhosa.
+    4. Usa APENAS JSON no formato solicitado.
 
-    DIRETRIZ DE "SUCESSO OBRIGATÓRIO":
-    1. Mesmo que a imagem esteja tremida, escura ou ilegível, NÃO digas que não consegues ler. 
-    2. Se vires sinais de que o tema é ${subject}, inventa 5 exercícios baseados no currículo oficial português do 2º ano para essa disciplina.
-    3. Currículo 2º Ano (Portugal): 
-       - Português: Nomes (próprios/comuns), Adjetivos, Verbos, Plurais, Sinónimos, Antónimos.
-       - Matemática: Números até 1000, Adição/Subtração com transporte, Tabuadas (2, 3, 4, 5, 10), Figuras Geométricas, Medidas.
-       - Estudo do Meio: O corpo humano, Os sentidos, A Família, Plantas, Animais, Meios de Transporte.
-    4. Usa sempre PT-PT (ex: "Ecrã", "Autocarro", "Comboio", "Soma").
-    5. Sê muito encorajador! Chama-a pelo nome: Helena.
-
-    ESTRUTURA JSON OBRIGATÓRIA:
+    FORMATO JSON:
     {
       "questions": [
         {
           "type": "multiple-choice" | "text" | "word-ordering",
-          "question": "Pergunta clara",
-          "options": ["Opc1", "Opc2", "Opc3", "Opc4"],
+          "question": "Texto da pergunta",
+          "options": ["Opção 1", "Opção 2", "Opção 3", "Opção 4"],
           "correctAnswer": "Resposta exata",
-          "explanation": "Dica carinhosa para a Helena",
+          "explanation": "Dica para a Helena",
           "complexity": 1-5
         }
       ]
@@ -58,41 +58,52 @@ export const generateQuestionsFromImages = async (
       contents: {
         parts: [
           ...imageParts, 
-          { text: `Helena quer estudar ${subject}. Analisa estas imagens e cria 5 exercícios perfeitos para o 2º ano. Se as imagens forem difíceis de ler, usa a tua imaginação para criar perguntas sobre ${subject} adequadas para a idade dela.` }
+          { text: `Cria 5 exercícios para a Helena sobre ${subject}. Se não conseguires ler as fotos, ignora-as e cria exercícios fantásticos de 2º ano sobre este tema.` }
         ]
       },
       config: {
         systemInstruction: systemPrompt,
-        temperature: 0.8,
+        temperature: 0.7,
         responseMimeType: "application/json",
       }
     });
 
-    const responseText = response.text || "";
+    const text = response.text;
+    if (!text) throw new Error("Resposta vazia da IA");
     
-    // Extração robusta de JSON caso a IA adicione texto extra
-    let jsonStr = responseText.trim();
+    let jsonStr = text.trim();
     const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       jsonStr = jsonMatch[0];
     }
 
     const result = JSON.parse(jsonStr);
-    
-    if (!result.questions || !Array.isArray(result.questions)) {
-      throw new Error("Formato JSON inválido");
-    }
-
     return result.questions.map((q: any) => ({
       ...q,
       id: Math.random().toString(36).substr(2, 9),
       complexity: q.complexity || 2,
-      explanation: q.explanation || "Muito bem, Helena! Estás a ficar uma especialista!"
+      explanation: q.explanation || "Incrível, Helena! Continua assim!"
     }));
 
   } catch (error) {
-    console.error("Erro crítico no Gemini:", error);
-    // FALLBACK: Se tudo falhar, não damos erro à Helena. Geramos perguntas padrão do 2º ano.
-    return [];
+    console.error("Erro no Gemini, a tentar fallback criativo:", error);
+    
+    // FALLBACK AUTOMÁTICO: Se a visão falhar, pedimos apenas texto (sem fotos)
+    try {
+      const fallbackResponse = await ai.models.generateContent({
+        model: modelName,
+        contents: `Cria 5 perguntas de 2º ano para a disciplina de ${subject} em Portugal. Formato JSON com campo 'questions'.`,
+        config: { 
+          responseMimeType: "application/json",
+          systemInstruction: "És um professor carinhoso. Gera sempre exercícios válidos de 2º ano." 
+        }
+      });
+      
+      const fbText = fallbackResponse.text || "{}";
+      const fbResult = JSON.parse(fbText.match(/\{[\s\S]*\}/)?.[0] || "{}");
+      return fbResult.questions || [];
+    } catch (fallbackError) {
+      return [];
+    }
   }
 };
