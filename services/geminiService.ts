@@ -16,12 +16,13 @@ export const validateWorksheetImage = async (base64Image: string): Promise<{
   const dataOnly = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
 
   try {
+    // Para validação rápida, o Flash é ideal
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: dataOnly } },
-          { text: "Analisa esta imagem de uma ficha escolar do 2º ano. É legível? Responde apenas JSON: {\"isValid\": boolean, \"topic\": \"string\", \"feedback\": \"string\"}" }
+          { text: "És um assistente de professores. Analisa esta imagem de uma ficha escolar do 2º ano. É legível o suficiente para extrair exercícios? Responde apenas em formato JSON: {\"isValid\": boolean, \"topic\": \"string\", \"feedback\": \"string\"}. Se for ilegível, explica porquê no feedback (ex: muito escuro, tremido)." }
         ]
       },
       config: { 
@@ -49,6 +50,7 @@ export const generateQuestionsFromImages = async (
 ): Promise<Question[]> => {
   if (!process.env.API_KEY) return [];
   
+  // Usamos o Pro para a geração de perguntas pois exige OCR de alta precisão e raciocínio pedagógico
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const responseSchema = {
@@ -64,7 +66,8 @@ export const generateQuestionsFromImages = async (
             options: { type: Type.ARRAY, items: { type: Type.STRING } },
             correctAnswer: { type: Type.STRING },
             explanation: { type: Type.STRING },
-            complexity: { type: Type.INTEGER }
+            complexity: { type: Type.INTEGER },
+            translation: { type: Type.STRING }
           },
           required: ["type", "question", "correctAnswer", "explanation", "complexity"]
         }
@@ -79,25 +82,47 @@ export const generateQuestionsFromImages = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: {
         parts: [
           ...imageParts,
-          { text: `CONTEXTO: 2º ano Portugal. TEMA: ${subject}. TAREFA: Cria 5 exercícios divertidos usando o nome Helena.` }
+          { text: `AGE COMO: Professor do 1º Ciclo em Portugal (2º ano). 
+          TAREFA: Analisa as imagens fornecidas (fichas escolares) e cria 5 exercícios digitais interativos baseados no conteúdo detetado.
+          CONTEXTO: A aluna chama-se Helena. Os exercícios devem ser divertidos e motivadores.
+          
+          DIRETRIZES DE OCR E QUALIDADE:
+          1. Ignora sombras, dobras de papel ou manchas. Foca no texto e imagens pedagógicas.
+          2. Se o texto estiver manuscrito, faz o teu melhor para transcrever corretamente.
+          3. Se o tema for ${subject}, foca nos conceitos curriculares dessa área em Portugal.
+          
+          TIPOS DE EXERCÍCIOS:
+          - multiple-choice: Pergunta com 4 opções.
+          - text: Pergunta de resposta aberta curta.
+          - word-ordering: Frase para ordenar (coloca as palavras baralhadas em 'options').
+          
+          Explica sempre o 'porquê' da resposta correta na 'explanation' de forma carinhosa para a Helena.` }
         ]
       },
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.7
+        temperature: 0.4, // Menor temperatura para ser mais fiel ao conteúdo da ficha
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
     const text = response.text || '{"questions": []}';
     const result = JSON.parse(text);
-    return result.questions.map((q: any) => ({ ...q, id: Math.random().toString(36).substr(2, 9) }));
+    
+    // Garantir que todas as perguntas têm ID e limpeza básica
+    return (result.questions || []).map((q: any) => ({
+      ...q,
+      id: Math.random().toString(36).substr(2, 9),
+      complexity: q.complexity || 2
+    }));
   } catch (error) {
-    console.error("Erro ao gerar perguntas:", error);
+    console.error("Erro crítico ao gerar perguntas com Gemini Pro:", error);
+    // Fallback silencioso ou retornar vazio para o UI lidar
     return [];
   }
 };
