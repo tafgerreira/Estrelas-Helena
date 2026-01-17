@@ -32,16 +32,14 @@ export const resizeImage = (base64Str: string, maxWidth = 1600, maxHeight = 1600
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       
-      // Filtros mais suaves: 
-      // Contrast(1.2) - ajuda a destacar o lápis sem queimar os brancos
-      // Brightness(1.05) - limpeza leve de sombras
-      // Sharpening simulado através de uma leve saturação
-      ctx.filter = 'contrast(1.2) brightness(1.05) saturate(1.05)';
+      // Filtros mais naturais para não apagar o lápis cinzento
+      // Contrast 1.1 é suficiente para separar o texto do fundo sem "queimar" os tons médios
+      ctx.filter = 'contrast(1.1) brightness(1.02) saturate(1.05)';
 
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Qualidade 0.85 é o equilíbrio ideal entre peso e nitidez para OCR
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
+      // JPEG com qualidade alta para manter detalhes do lápis
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
     };
     img.onerror = (e) => reject(e);
   });
